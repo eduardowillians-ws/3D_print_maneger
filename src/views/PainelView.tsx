@@ -78,7 +78,7 @@ export default function PainelView() {
       </div>
 
       {/* KPI Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '32px' }}>
+      <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '32px' }}>
         <KPICard 
           title="Receita Total" 
           value={selectedMonth === 'Março' ? "$12,450" : "$9,820"} 
@@ -114,7 +114,7 @@ export default function PainelView() {
       </div>
 
       {/* Main Charts Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', marginBottom: '24px' }}>
+      <div className="grid-responsive" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', marginBottom: '24px' }}>
         <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
             <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Receita vs Lucro</h3>
@@ -154,8 +154,8 @@ export default function PainelView() {
         </div>
       </div>
 
-      {/* Alertas Críticos Section (Sample) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px' }}>
+      {/* Alertas Críticos Section */}
+      <div className="grid-responsive" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px' }}>
         <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '32px' }}>Volume de Produção (Semanal)</h3>
           <div style={{ height: '200px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around' }}>

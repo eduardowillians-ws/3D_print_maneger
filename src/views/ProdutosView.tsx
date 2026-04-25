@@ -122,7 +122,7 @@ export default function ProdutosView() {
         />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
+      <div className="grid-responsive" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
         <AnimatePresence mode='popLayout'>
           {filteredProducts.map(product => (
             <ProductCard key={product.id} product={product} onEdit={() => startEdit(product)} />

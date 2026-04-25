@@ -243,3 +243,113 @@ body {
 .table-hover:hover {
   background: rgba(255, 255, 255, 0.015);
 }
+
+/* ============================================================
+   RESPONSIVIDADE (Mobile & Tablet)
+   ============================================================ */
+
+/* TABLETS (Telas médias) */
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 80px;
+    padding: 24px 8px;
+  }
+  .sidebar span, .sidebar h3, .sidebar .sidebar-user-logout div:nth-child(2) {
+    display: none;
+  }
+  .nav-item {
+    justify-content: center;
+    padding: 12px;
+  }
+}
+
+/* MOBILE (Celulares) */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100% !important;
+    height: 65px !important;
+    flex-direction: row !important;
+    padding: 0 10px !important;
+    z-index: 1000;
+    border-right: none;
+    border-top: 1px solid var(--border-glass);
+    justify-content: space-around;
+  }
+  
+  .sidebar nav {
+    flex-direction: row !important;
+    gap: 0 !important;
+    width: 100%;
+    justify-content: space-around;
+    padding-bottom: 0 !important;
+  }
+
+  .sidebar .sidebar-user-logout, .sidebar > div:first-child {
+    display: none !important;
+  }
+
+  .nav-item {
+    flex-direction: column;
+    gap: 4px;
+    font-size: 10px;
+    padding: 8px !important;
+  }
+
+  .nav-item span {
+    display: block !important;
+    font-size: 9px;
+  }
+
+  /* Ajuste da área principal para não ficar embaixo da sidebar mobile */
+  #root > div {
+    flex-direction: column !important;
+  }
+  
+  main, .page-content-area {
+    padding: 16px !important;
+    padding-bottom: 80px !important; /* Espaço para a barra inferior */
+  }
+
+  header {
+    padding: 0 16px !important;
+    height: auto !important;
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  header > div:first-child {
+    width: 100% !important;
+    order: 2;
+  }
+
+  header > div:last-child {
+    width: 100%;
+    justify-content: space-between;
+    order: 1;
+  }
+
+  /* Grids para mobile */
+  .grid-responsive {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Modais no celular */
+  .modal-content {
+    width: 95% !important;
+    max-width: 95% !important;
+    padding: 20px !important;
+    margin: 10px;
+  }
+  
+  /* Ajuste de KPI Cards em slider ou stack */
+  .kpi-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+}

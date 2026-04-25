@@ -22,7 +22,7 @@ import PainelView from '../views/PainelView';
 import ImpressorasView from '../views/ImpressorasView';
 import MateriaisView from '../views/MateriaisView';
 import ProdutosView from '../views/ProdutosView';
-import EstimatesView from '../views/EstimatesView';
+import OrcamentosView from '../views/OrcamentosView';
 import ProducaoView from '../views/ProducaoView';
 import ClientsView from '../views/ClientsView';
 import FinancialView from '../views/FinancialView';
@@ -136,12 +136,12 @@ export default function Dashboard({ isDarkMode, setIsDarkMode }: any) {
         </header>
 
         {/* Page Content */}
-        <div style={{ flex: 1, padding: '32px', overflowY: 'auto' }}>
+        <div className="page-content-area" style={{ flex: 1, padding: '32px', overflowY: 'auto' }}>
           {activeTab === 'Painel' && <PainelView />}
           {activeTab === 'Impressoras' && <ImpressorasView />}
           {activeTab === 'Materiais' && <MateriaisView />}
           {activeTab === 'Produtos' && <ProdutosView />}
-          {activeTab === 'Orçamentos' && <EstimatesView />}
+          {activeTab === 'Orçamentos' && <OrcamentosView />}
           {activeTab === 'Produção' && <ProducaoView />}
           {activeTab === 'Clientes' && <ClientsView />}
           {activeTab === 'Financeiro' && <FinancialView />}
