@@ -116,13 +116,6 @@ export default function Dashboard() {
           <NavItem icon={<FileText size={20} />} label="Orçamentos" active={activeTab === 'Orçamentos'} onClick={() => handleTabChange('Orçamentos')} />
           <NavItem icon={<Workflow size={20} />} label="Produção" active={activeTab === 'Produção'} onClick={() => handleTabChange('Produção')} />
           <NavItem icon={<Users size={20} />} label="Clientes" active={activeTab === 'Clientes'} onClick={() => handleTabChange('Clientes')} />
-          {activeTab === 'Financeiro' && (
-            <>
-              <CustomSelect label={filterMonth} options={['Abril', 'Março', 'Fevereiro']} isOpen={openDropdown === 'month'} onToggle={() => toggleDropdown('month')} onSelect={(val: string) => { setFilterMonth(val); setOpenDropdown(null); }} />
-              <CustomSelect label={filterYear} options={['2024', '2023']} isOpen={openDropdown === 'year'} onToggle={() => toggleDropdown('year')} onSelect={(val: string) => { setFilterYear(val); setOpenDropdown(null); }} />
-              <CustomSelect label={filterCategory} options={['Todas', 'Vendas', 'Insumos', 'Manutenção']} isOpen={openDropdown === 'category'} onToggle={() => toggleDropdown('category')} onSelect={(val: string) => { setFilterCategory(val); setOpenDropdown(null); }} />
-            </>
-          )}
           <NavItem icon={<Wallet size={20} />} label="Financeiro" active={activeTab === 'Financeiro'} onClick={() => handleTabChange('Financeiro')} />
         </nav>
 

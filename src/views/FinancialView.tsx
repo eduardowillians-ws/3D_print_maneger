@@ -185,9 +185,9 @@ export default function FinancialView() {
           
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
             {/* Custom Dropdowns */}
-            <CustomSelect label={filterMonth} options={['Abril', 'Março', 'Fevereiro']} isOpen={openDropdown === 'month'} onToggle={() => toggleDropdown('month')} onSelect={val => { setFilterMonth(val); setOpenDropdown(null); }} />
-            <CustomSelect label={filterYear} options={['2024', '2023']} isOpen={openDropdown === 'year'} onToggle={() => toggleDropdown('year')} onSelect={val => { setFilterYear(val); setOpenDropdown(null); }} />
-            <CustomSelect label={filterCategory} options={['Todas', 'Vendas', 'Insumos', 'Manutenção']} isOpen={openDropdown === 'category'} onToggle={() => toggleDropdown('category')} onSelect={val => { setFilterCategory(val); setOpenDropdown(null); }} />
+            <CustomSelect label={filterMonth} options={['Abril', 'Março', 'Fevereiro']} isOpen={openDropdown === 'month'} onToggle={() => toggleDropdown('month')} onSelect={(val: string) => { setFilterMonth(val); setOpenDropdown(null); }} />
+            <CustomSelect label={filterYear} options={['2024', '2023']} isOpen={openDropdown === 'year'} onToggle={() => toggleDropdown('year')} onSelect={(val: string) => { setFilterYear(val); setOpenDropdown(null); }} />
+            <CustomSelect label={filterCategory} options={['Todas', 'Vendas', 'Insumos', 'Manutenção']} isOpen={openDropdown === 'category'} onToggle={() => toggleDropdown('category')} onSelect={(val: string) => { setFilterCategory(val); setOpenDropdown(null); }} />
             
             <button onClick={handleRefresh} style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-glass)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
               <RefreshCw size={16} className={isFiltering ? 'animate-spin' : ''} />
