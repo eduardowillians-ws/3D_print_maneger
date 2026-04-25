@@ -64,14 +64,28 @@ export default function Dashboard() {
     <div style={{ display: 'flex', height: '100vh', width: '100vw', background: 'var(--bg-main)', overflow: 'hidden', position: 'relative' }}>
       
       {/* Mobile Overlay */}
-      <div 
-        className={`mobile-overlay ${isSidebarOpen ? 'visible' : ''}`} 
-        onClick={() => setIsSidebarOpen(false)} 
-      />
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="mobile-overlay visible"
+            onClick={() => setIsSidebarOpen(false)} 
+            style={{ 
+              position: 'fixed', 
+              inset: 0, 
+              background: 'rgba(0,0,0,0.6)', 
+              backdropFilter: 'blur(4px)', 
+              zIndex: 1500 
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Sidebar */}
       <aside className={`sidebar ${isSidebarOpen ? 'mobile-open' : ''}`}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 12px 32px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 12px 32px', position: 'relative' }}>
           <div style={{ background: 'var(--primary)', padding: '6px', borderRadius: '8px' }}>
             <Monitor size={20} color="white" />
           </div>
@@ -79,8 +93,17 @@ export default function Dashboard() {
             <h3 style={{ fontSize: '16px', lineHeight: 1 }}>3D Print</h3>
             <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>Manager</span>
           </div>
-          <button className="hamburger-btn" onClick={() => setIsSidebarOpen(false)} style={{ marginLeft: 'auto', display: isSidebarOpen ? 'flex' : 'none' }}>
-            <X size={18} />
+          <button 
+            className="hamburger-btn" 
+            onClick={() => setIsSidebarOpen(false)} 
+            style={{ 
+              marginLeft: 'auto', 
+              display: 'flex',
+              background: 'transparent',
+              border: 'none'
+            }}
+          >
+            <X size={20} color="var(--text-dim)" />
           </button>
         </div>
 

@@ -22,7 +22,7 @@ Este documento rastreia o progresso do desenvolvimento do sistema **PrintPulse 3
 - [x] Modal de "Vincular Nova Impressora".
 - [x] Menu de Contexto (...) com ações (Calibrar, Renomear, Remover).
 - [x] Botões robustos de 54px para ações críticas.
-- [ ] Conexão via Webhook com Klipper/Moonraker.
+- [x] Conexão via Webhook com Klipper/Moonraker (Estrutura de Telemetria Pronta).
 
 ## 🧱 Módulo: Materiais
 - [x] Visualização de unidades AMS ativas (Slot 1 a 4).
@@ -57,10 +57,12 @@ Este documento rastreia o progresso do desenvolvimento do sistema **PrintPulse 3
 - [ ] Histórico de pedidos por cliente.
 - [ ] Tags de classificação (Recorrente, VIP, etc).
 
-## 💰 Módulo: Financeiro (Próximo Passo)
-- [ ] Fluxo de caixa detalhado.
-- [ ] Relatório de gastos com energia e manutenção.
-- [ ] Conciliação manual de entradas/saídas.
+## 💰 Módulo: Financeiro
+- [x] Fluxo de caixa detalhado com KPI cards.
+- [x] Histórico de transações com filtros (Mês/Ano/Categoria).
+- [x] Menu de ações (Editar, Estornar, Excluir).
+- [x] Lançamento de novas transações via modal.
+- [ ] Relatório de gastos com energia e manutenção (Cálculo Automático).
 
 ---
 *Atualizado em: 25 de Abril de 2026*
