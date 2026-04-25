@@ -124,7 +124,13 @@ export default function ClientsView() {
           <h1 style={{ fontSize: '24px', marginBottom: '4px' }}>Gestão de Clientes</h1>
           <p style={{ color: 'var(--text-dim)', fontSize: '13px' }}>Base estratégica de clientes e parceiros operacionais.</p>
         </div>
-        <button className="btn-primary" onClick={() => setShowModal(true)}><Plus size={18} /> Adicionar Cliente</button>
+        <button 
+          className="btn-primary" 
+          onClick={() => setShowModal(true)}
+          style={{ height: '54px', padding: '0 24px' }}
+        >
+          <Plus size={20} /> Adicionar Cliente
+        </button>
       </div>
 
       <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>

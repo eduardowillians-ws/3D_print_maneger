@@ -1,0 +1,112 @@
+-- 🏛️ PRINT PULSE 3D - SUPABASE DATABASE SCHEMA
+-- Last Updated: 2026-04-25
+-- Description: This file contains the complete structure of the SaaS platform.
+
+-- 1. EXTENSIONS
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 2. TABLES
+
+-- Impressoras: Gerencia o status e a telemetria das máquinas.
+CREATE TABLE IF NOT EXISTS public.printers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    status TEXT DEFAULT 'OCIOSA', -- OCIOSA, IMPRIMINDO, MANUTENÇÃO, OFFLINE
+    target_hotend INTEGER DEFAULT 200,
+    target_bed INTEGER DEFAULT 60,
+    target_fan INTEGER DEFAULT 100,
+    initial_hours FLOAT DEFAULT 0,
+    current_hours FLOAT DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Materiais: Controle de estoque de filamentos e resinas.
+CREATE TABLE IF NOT EXISTS public.materials (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    type TEXT NOT NULL, -- PLA, PETG, ABS, TPU, RESIN
+    color TEXT,
+    weight_g INTEGER DEFAULT 1000,
+    supplier TEXT,
+    price_per_kg DECIMAL(10,2) DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Produtos: Catálogo de peças fabricáveis com cálculo de custos.
+CREATE TABLE IF NOT EXISTS public.products (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    version TEXT DEFAULT 'v1.0',
+    print_time_hours INTEGER DEFAULT 0,
+    print_time_minutes INTEGER DEFAULT 0,
+    material_weight_g INTEGER DEFAULT 0,
+    margin_percent INTEGER DEFAULT 30,
+    suggested_price DECIMAL(10,2) DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Clientes: CRM para gestão de contatos e histórico.
+CREATE TABLE IF NOT EXISTS public.clients (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    address TEXT,
+    tags TEXT[], -- ex: {'VIP', 'Recorrente'}
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Orçamentos: Gestão de vendas e aprovações.
+CREATE TABLE IF NOT EXISTS public.quotes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    client_id UUID REFERENCES public.clients(id) ON DELETE SET NULL,
+    description TEXT NOT NULL,
+    total_value DECIMAL(10,2) DEFAULT 0,
+    status TEXT DEFAULT 'PENDENTE', -- PENDENTE, APROVADO, REJEITADO, PAGO
+    expiry_date DATE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Produção (Trabalhos): Fila de impressão e monitoramento de progresso.
+CREATE TABLE IF NOT EXISTS public.production_jobs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    printer_id UUID REFERENCES public.printers(id) ON DELETE SET NULL,
+    product_name TEXT NOT NULL,
+    status TEXT DEFAULT 'FILA', -- FILA, IMPRIMINDO, CONCLUIDO, ARQUIVADO
+    progress INTEGER DEFAULT 0,
+    start_time TIMESTAMP WITH TIME ZONE,
+    end_time TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Financeiro (Transações): Controle de caixa e auditoria.
+CREATE TABLE IF NOT EXISTS public.transactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    description TEXT NOT NULL,
+    type TEXT NOT NULL, -- INCOME (Entrada), EXPENSE (Saída)
+    category TEXT NOT NULL, -- Vendas, Insumos, Energia, Aluguel, etc.
+    value DECIMAL(10,2) NOT NULL,
+    status TEXT DEFAULT 'CONCLUÍDO',
+    date DATE DEFAULT CURRENT_DATE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 3. POLICIES (Row Level Security)
+-- Note: These policies currently allow all access for development. 
+-- In production, they should be restricted to authenticated users (auth.uid()).
+
+ALTER TABLE public.printers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.materials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.quotes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.production_jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow all for all" ON public.printers FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for all" ON public.materials FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for all" ON public.products FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for all" ON public.clients FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for all" ON public.quotes FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for all" ON public.production_jobs FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for all" ON public.transactions FOR ALL USING (true) WITH CHECK (true);

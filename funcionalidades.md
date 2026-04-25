@@ -64,5 +64,11 @@ Este documento rastreia o progresso do desenvolvimento do sistema **PrintPulse 3
 - [x] Lançamento de novas transações via modal.
 - [ ] Relatório de gastos com energia e manutenção (Cálculo Automático).
 
+## 🛠️ Infraestrutura & Persistência (Back-end)
+- [x] Conexão remota vinculada ao projeto `noxbszwzxpvwjmnlghhw`.
+- [x] Estrutura completa de tabelas (SQL) executada com sucesso.
+- [x] Persistência local do esquema em `supabase/schema.sql` para futuras AIs.
+- [x] Mobile Refresh: Menu Drawer responsivo com fechamento automático.
+
 ---
 *Atualizado em: 25 de Abril de 2026*
