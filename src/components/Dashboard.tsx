@@ -15,8 +15,13 @@ import {
   Moon, 
   Sun,
   HelpCircle,
-  Monitor
+  Monitor,
+  Menu,
+  X,
+  LogOut
 } from 'lucide-react';
+
+import { useSettings } from '../contexts/SettingsContext';
 
 import PainelView from '../views/PainelView';
 import ImpressorasView from '../views/ImpressorasView';
@@ -28,17 +33,44 @@ import ClientsView from '../views/ClientsView';
 import FinancialView from '../views/FinancialView';
 import SettingsView from '../views/SettingsView';
 
-export default function Dashboard({ isDarkMode, setIsDarkMode }: any) {
+export default function Dashboard() {
+  const { theme, setTheme, user } = useSettings();
   const [activeTab, setActiveTab] = useState('Painel');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    try {
+      if (confirm('Deseja realmente encerrar sua sessão?')) {
+        await supabase.auth.signOut();
+        // Redireciona forçado caso o listener demore
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Erro ao sair:', error);
+      // Fallback: limpa tudo e recarrega
+      localStorage.clear();
+      window.location.reload();
+    }
+  };
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setIsSidebarOpen(false);
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: 'var(--bg-main)' }}>
+    <div style={{ display: 'flex', height: '100vh', width: '100vw', background: 'var(--bg-main)', overflow: 'hidden', position: 'relative' }}>
+      
+      {/* Mobile Overlay */}
+      <div 
+        className={`mobile-overlay ${isSidebarOpen ? 'visible' : ''}`} 
+        onClick={() => setIsSidebarOpen(false)} 
+      />
+
       {/* Sidebar */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${isSidebarOpen ? 'mobile-open' : ''}`}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 12px 32px' }}>
           <div style={{ background: 'var(--primary)', padding: '6px', borderRadius: '8px' }}>
             <Monitor size={20} color="white" />
@@ -47,21 +79,24 @@ export default function Dashboard({ isDarkMode, setIsDarkMode }: any) {
             <h3 style={{ fontSize: '16px', lineHeight: 1 }}>3D Print</h3>
             <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>Manager</span>
           </div>
+          <button className="hamburger-btn" onClick={() => setIsSidebarOpen(false)} style={{ marginLeft: 'auto', display: isSidebarOpen ? 'flex' : 'none' }}>
+            <X size={18} />
+          </button>
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-          <NavItem icon={<LayoutDashboard size={20} />} label="Painel" active={activeTab === 'Painel'} onClick={() => setActiveTab('Painel')} />
-          <NavItem icon={<Printer size={20} />} label="Impressoras" active={activeTab === 'Impressoras'} onClick={() => setActiveTab('Impressoras')} />
-          <NavItem icon={<Layers size={20} />} label="Materiais" active={activeTab === 'Materiais'} onClick={() => setActiveTab('Materiais')} />
-          <NavItem icon={<Package size={20} />} label="Produtos" active={activeTab === 'Produtos'} onClick={() => setActiveTab('Produtos')} />
-          <NavItem icon={<FileText size={20} />} label="Orçamentos" active={activeTab === 'Orçamentos'} onClick={() => setActiveTab('Orçamentos')} />
-          <NavItem icon={<Workflow size={20} />} label="Produção" active={activeTab === 'Produção'} onClick={() => setActiveTab('Produção')} />
-          <NavItem icon={<Users size={20} />} label="Clientes" active={activeTab === 'Clientes'} onClick={() => setActiveTab('Clientes')} />
-          <NavItem icon={<Wallet size={20} />} label="Financeiro" active={activeTab === 'Financeiro'} onClick={() => setActiveTab('Financeiro')} />
+          <NavItem icon={<LayoutDashboard size={20} />} label="Painel" active={activeTab === 'Painel'} onClick={() => handleTabChange('Painel')} />
+          <NavItem icon={<Printer size={20} />} label="Impressoras" active={activeTab === 'Impressoras'} onClick={() => handleTabChange('Impressoras')} />
+          <NavItem icon={<Layers size={20} />} label="Materiais" active={activeTab === 'Materiais'} onClick={() => handleTabChange('Materiais')} />
+          <NavItem icon={<Package size={20} />} label="Produtos" active={activeTab === 'Produtos'} onClick={() => handleTabChange('Produtos')} />
+          <NavItem icon={<FileText size={20} />} label="Orçamentos" active={activeTab === 'Orçamentos'} onClick={() => handleTabChange('Orçamentos')} />
+          <NavItem icon={<Workflow size={20} />} label="Produção" active={activeTab === 'Produção'} onClick={() => handleTabChange('Produção')} />
+          <NavItem icon={<Users size={20} />} label="Clientes" active={activeTab === 'Clientes'} onClick={() => handleTabChange('Clientes')} />
+          <NavItem icon={<Wallet size={20} />} label="Financeiro" active={activeTab === 'Financeiro'} onClick={() => handleTabChange('Financeiro')} />
         </nav>
 
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '20px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <NavItem icon={<Settings size={20} />} label="Configurações" active={activeTab === 'Configurações'} onClick={() => setActiveTab('Configurações')} />
+          <NavItem icon={<Settings size={20} />} label="Configurações" active={activeTab === 'Configurações'} onClick={() => handleTabChange('Configurações')} />
           <div 
             onClick={handleLogout}
             style={{ 
@@ -72,65 +107,70 @@ export default function Dashboard({ isDarkMode, setIsDarkMode }: any) {
               marginTop: '12px', 
               cursor: 'pointer', 
               borderRadius: '8px', 
-              transition: 'background 0.2s',
-              background: 'rgba(255,255,255,0.02)' 
+              transition: 'all 0.2s',
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid var(--border-glass)'
             }}
             className="sidebar-user-logout"
           >
-            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(45deg, var(--primary), var(--accent-cyan))' }}></div>
-            <div style={{ flex: 1 }}>
-              <p style={{ fontSize: '13px', fontWeight: 600 }}>Usuário Admin</p>
-              <p style={{ fontSize: '10px', color: 'var(--text-dim)' }}>Clique para sair</p>
+            <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+               <img src={user.photo} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: '13px', fontWeight: 700 }}>{user.name} {user.lastName}</p>
+              <p style={{ fontSize: '10px', color: 'var(--text-dim)' }}>Sair do Sistema</p>
+            </div>
+            <LogOut size={14} color="var(--error)" />
           </div>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        
         {/* Top Bar */}
         <header style={{ 
           height: '64px', 
-          borderBottom: '1px solid rgba(255,255,255,0.05)', 
+          borderBottom: '1px solid var(--border-glass)', 
           padding: '0 32px', 
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'space-between',
-          background: 'var(--bg-deep)'
+          background: 'var(--bg-main)'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', background: 'var(--bg-main)', padding: '8px 16px', borderRadius: '8px', width: '400px' }}>
-            <Search size={18} color="var(--text-muted)" />
-            <input 
-              type="text" 
-              placeholder={`Pesquisar em ${activeTab.toLowerCase()}...`} 
-              style={{ background: 'transparent', border: 'none', outline: 'none', color: 'white', width: '100%', fontSize: '13px' }}
-            />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <button className="hamburger-btn" onClick={toggleSidebar}>
+              <Menu size={20} />
+            </button>
+            <div className="search-container" style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(0,0,0,0.2)', padding: '8px 16px', borderRadius: '10px', width: '300px', border: '1px solid var(--border-glass)' }}>
+              <Search size={18} color="var(--text-muted)" />
+              <input 
+                type="text" 
+                placeholder={`Pesquisar...`} 
+                style={{ background: 'transparent', border: 'none', outline: 'none', color: 'white', width: '100%', fontSize: '13px' }}
+              />
+            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-            <Bell size={20} color="var(--text-dim)" cursor="pointer" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <Bell size={20} color="var(--text-dim)" cursor="pointer" className="hide-mobile" />
             <div className="theme-toggle-btn" 
-              onClick={() => {
-                console.log('Toggling theme, currently dark:', isDarkMode);
-                setIsDarkMode(!isDarkMode);
-              }} 
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} 
               style={{ 
                 cursor: 'pointer', 
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'center',
                 padding: '8px',
-                borderRadius: '8px',
+                borderRadius: '10px',
                 background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.05)',
-                transition: 'all 0.2s'
+                border: '1px solid var(--border-glass)'
               }}
             >
-               {isDarkMode ? <Sun size={18} color="var(--text-dim)" /> : <Moon size={18} color="var(--text-dim)" />}
+               {theme === 'dark' ? <Sun size={18} color="var(--text-dim)" /> : <Moon size={18} color="var(--text-dim)" />}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-dim)', fontSize: '13px', cursor: 'pointer' }}>
+            <div className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-dim)', fontSize: '13px', cursor: 'pointer' }}>
               <HelpCircle size={20} />
-              <span>Suporte</span>
             </div>
           </div>
         </header>

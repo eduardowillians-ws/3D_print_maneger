@@ -1,297 +1,279 @@
-import { useState } from 'react';
-import { Wallet, TrendingUp, Printer, FileText, ChevronDown, Filter, AlertTriangle, Settings, Clock, XCircle, ChevronUp } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Wallet, TrendingUp, Printer, FileText, ChevronDown, Filter, AlertTriangle, Settings, Clock, Layers, RefreshCw, MoreVertical } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSettings } from '../contexts/SettingsContext';
 
 export default function PainelView() {
-  const [selectedMonth, setSelectedMonth] = useState('Março');
+  const { currencySymbol } = useSettings();
+  const [selectedMonth, setSelectedMonth] = useState('Abril');
   const [selectedYear, setSelectedYear] = useState('2024');
-  const [showMonthMenu, setShowMonthMenu] = useState(false);
-  const [showYearMenu, setShowYearMenu] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
   const years = ['2023', '2024', '2025'];
 
+  // Dados mockados que mudam com os filtros
+  const getDynamicData = (month: string, year: string) => {
+    const seed = (month.length * 100) + (parseInt(year) % 10);
+    return {
+      receita: (12450 + seed).toLocaleString('pt-BR'),
+      lucro: (3200 + (seed / 2)).toLocaleString('pt-BR'),
+      impressoes: 5 + (seed % 5),
+      orcamentos: 10 + (seed % 8),
+      productionData: [
+        { label: 'Sem 1', val: 120 + (seed % 30) },
+        { label: 'Sem 2', val: 150 - (seed % 20) },
+        { label: 'Sem 3', val: 140 + (seed % 40) },
+        { label: 'Sem 4', val: 180 - (seed % 10) }
+      ],
+      chartData: [
+        65 + (seed % 10), 45 + (seed % 15), 85 - (seed % 5), 55 + (seed % 20), 
+        95 - (seed % 10), 75 + (seed % 5), 40 + (seed % 15)
+      ],
+      pieData: [
+        { label: 'B2B', val: 40 + (seed % 10), color: 'var(--primary)' },
+        { label: 'Prototipagem', val: 25 + (seed % 5), color: 'var(--accent-cyan)' },
+        { label: 'Hobbyistas', val: 20 - (seed % 5), color: '#F59E0B' },
+        { label: 'Educação', val: 15, color: 'var(--secondary)' }
+      ]
+    };
+  };
+
+  const data = getDynamicData(selectedMonth, selectedYear);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    setTimeout(() => {
+        setIsRefreshing(false);
+        // Aqui simularia um fetch de novos dados
+    }, 800);
+  };
+
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px' }}>
-        <div>
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ paddingBottom: '40px' }}>
+      <div style={headerContainerStyle}>
+        <div style={{ marginBottom: '16px' }}>
           <h1 style={{ fontSize: '24px', marginBottom: '4px' }}>Centro de Controle</h1>
           <p style={{ color: 'var(--text-dim)', fontSize: '13px' }}>Visão geral do desempenho e métricas operacionais.</p>
         </div>
         
-        <div style={{ display: 'flex', gap: '12px', position: 'relative' }}>
-          {/* Dropdown Mês */}
-          <div style={{ position: 'relative' }}>
-            <div 
-              onClick={() => setShowMonthMenu(!showMonthMenu)}
-              style={filterSelectStyle}
-            >
-              {selectedMonth} <ChevronDown size={14} style={{ transform: showMonthMenu ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
-            </div>
-            <AnimatePresence>
-              {showMonthMenu && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
-                  style={dropdownMenuStyle}
-                >
-                  {months.map(m => (
-                    <div key={m} onClick={() => { setSelectedMonth(m); setShowMonthMenu(false); }} className="dropdown-item" style={dropdownItemStyle}>{m}</div>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Dropdown Ano */}
-          <div style={{ position: 'relative' }}>
-            <div 
-              onClick={() => setShowYearMenu(!showYearMenu)}
-              style={filterSelectStyle}
-            >
-              {selectedYear} <ChevronDown size={14} style={{ transform: showYearMenu ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
-            </div>
-            <AnimatePresence>
-              {showYearMenu && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
-                  style={dropdownMenuStyle}
-                >
-                  {years.map(y => (
-                    <div key={y} onClick={() => { setSelectedYear(y); setShowYearMenu(false); }} className="dropdown-item" style={dropdownItemStyle}>{y}</div>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          <button 
-            onClick={() => alert('Filtros Avançados: Em desenvolvimento para integração com o banco de dados.')} 
-            style={filterIconButtonStyle}
-          >
-            <Filter size={16} />
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <CustomSelect 
+            label={selectedMonth} 
+            options={months} 
+            isOpen={openDropdown === 'month'} 
+            onToggle={() => setOpenDropdown(openDropdown === 'month' ? null : 'month')} 
+            onSelect={(m: string) => { setSelectedMonth(m); setOpenDropdown(null); handleRefresh(); }} 
+          />
+          <CustomSelect 
+            label={selectedYear} 
+            options={years} 
+            isOpen={openDropdown === 'year'} 
+            onToggle={() => setOpenDropdown(openDropdown === 'year' ? null : 'year')} 
+            onSelect={(y: string) => { setSelectedYear(y); setOpenDropdown(null); handleRefresh(); }} 
+          />
+          <button onClick={handleRefresh} style={filterIconButtonStyle} title="Sincronizar Dados">
+            <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
-      <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '32px' }}>
-        <KPICard 
-          title="Receita Total" 
-          value={selectedMonth === 'Março' ? "$12,450" : "$9,820"} 
-          change="+8.2% vs mês passado" 
-          icon={<Wallet size={20} color="var(--primary)" />} 
-          bgColor="rgba(138, 43, 226, 0.05)"
-          accentColor="var(--primary)"
-        />
-        <KPICard 
-          title="Lucro Mensal" 
-          value={selectedMonth === 'Março' ? "$3,200" : "$2,150"} 
-          change="+4.1% vs mês passado" 
-          icon={<TrendingUp size={20} color="var(--secondary)" />} 
-          bgColor="rgba(74, 225, 118, 0.05)"
-          accentColor="var(--secondary)"
-        />
-        <KPICard 
-          title="Impressões Ativas" 
-          value="8" 
-          change="82% de utilização" 
-          icon={<Printer size={20} color="var(--accent-cyan)" />} 
-          bgColor="rgba(34, 211, 238, 0.05)"
-          accentColor="var(--accent-cyan)"
-        />
-        <KPICard 
-          title="Orçamentos Pendentes" 
-          value="15" 
-          change="Necessita revisão" 
-          icon={<FileText size={20} color="#F59E0B" />} 
-          bgColor="rgba(245, 158, 11, 0.05)"
-          accentColor="#F59E0B"
-        />
+      <div className="kpi-grid" style={kpiGridStyle}>
+        <KPICard title="Receita Total" value={`${currencySymbol} ${data.receita}`} change="+8.2% vs mês passado" icon={<Wallet size={20} color="var(--primary)" />} bgColor="rgba(138, 43, 226, 0.05)" accentColor="var(--primary)" isRefreshing={isRefreshing} />
+        <KPICard title="Lucro Mensal" value={`${currencySymbol} ${data.lucro}`} change="+4.1% vs mês passado" icon={<TrendingUp size={20} color="var(--secondary)" />} bgColor="rgba(74, 225, 118, 0.05)" accentColor="var(--secondary)" isRefreshing={isRefreshing} />
+        <KPICard title="Impressões Ativas" value={data.impressoes.toString()} change="82% de utilização" icon={<Printer size={20} color="var(--accent-cyan)" />} bgColor="rgba(34, 211, 238, 0.05)" accentColor="var(--accent-cyan)" isRefreshing={isRefreshing} />
+        <KPICard title="Orçamentos Pendentes" value={data.orcamentos.toString()} change="Necessita revisão" icon={<FileText size={20} color="#F59E0B" />} bgColor="rgba(245, 158, 11, 0.05)" accentColor="#F59E0B" isRefreshing={isRefreshing} />
       </div>
 
-      {/* Main Charts Row */}
-      <div className="grid-responsive" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', marginBottom: '24px' }}>
-        <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
+      <div style={mainGridStyle}>
+        {/* Gráfico de Linha Reativo */}
+        <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', position: 'relative' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Receita vs Lucro</h3>
-            <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: 'var(--text-dim)' }}>
-               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)' }}></div> Receita ($)</span>
-               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--secondary)' }}></div> Lucro ($)</span>
+            <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Receita vs Lucro ({selectedYear})</h3>
+            <div style={{ display: 'flex', gap: '16px', fontSize: '10px', color: 'var(--text-dim)', flexWrap: 'wrap' }}>
+               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)' }}></div> Receita</span>
+               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--secondary)' }}></div> Lucro</span>
             </div>
           </div>
-          <div style={{ height: '240px', position: 'relative', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: '0 10px' }}>
+          <div style={{ height: '200px', position: 'relative', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: '0 10px' }}>
              <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
-                <path d="M0,180 L100,160 L200,170 L300,140 L400,130 L500,110 L600,100" fill="none" stroke="var(--primary)" strokeWidth="2" />
-                <path d="M0,230 L100,225 L200,232 L300,210 L400,215 L500,205 L600,195" fill="none" stroke="var(--secondary)" strokeWidth="2" strokeDasharray="4 2" />
+                <motion.path 
+                  key={`receita-${selectedMonth}-${selectedYear}`}
+                  initial={{ pathLength: 0 }}
+                  animate={{ pathLength: 1 }}
+                  transition={{ duration: 1 }}
+                  d={`M0,${180 - data.chartData[0]} L100,${180 - data.chartData[1]} L200,${180 - data.chartData[2]} L300,${180 - data.chartData[3]} L400,${180 - data.chartData[4]} L500,${180 - data.chartData[5]} L600,${180 - data.chartData[6]}`} 
+                  fill="none" stroke="var(--primary)" strokeWidth="2" 
+                />
+                <motion.path 
+                  key={`lucro-${selectedMonth}-${selectedYear}`}
+                  initial={{ pathLength: 0 }}
+                  animate={{ pathLength: 1 }}
+                  transition={{ duration: 1.2 }}
+                  d={`M0,230 L100,225 L200,232 L300,210 L400,215 L500,205 L600,195`} 
+                  fill="none" stroke="var(--secondary)" strokeWidth="2" strokeDasharray="4 2" 
+                />
              </svg>
-             <div style={chartAxisLabel}>Jan</div>
-             <div style={chartAxisLabel}>Fev</div>
-             <div style={chartAxisLabel}>Mar</div>
-             <div style={chartAxisLabel}>Abr</div>
-             <div style={chartAxisLabel}>Mai</div>
-             <div style={chartAxisLabel}>Jun</div>
-             <div style={chartAxisLabel}>Jul</div>
+             {['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul'].map(m => <div key={m} style={chartAxisLabel}>{m}</div>)}
           </div>
         </div>
 
+        {/* Gráfico de Rosca Reativo */}
         <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '32px' }}>Distribuição de Clientes</h3>
+          <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '24px' }}>Distribuição de Clientes</h3>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
-            <div style={{ width: '150px', height: '150px', borderRadius: '50%', border: '25px solid var(--primary)', borderRightColor: 'var(--accent-cyan)', borderBottomColor: 'var(--secondary)', borderLeftColor: '#F59E0B', position: 'relative' }}>
-               <div style={{ position: 'absolute', inset: '-2px', borderRadius: '50%', border: '4px solid var(--bg-main)', transition: '0.3s' }}></div>
+            <div style={{ position: 'relative', width: '140px', height: '140px' }}>
+                <svg viewBox="0 0 42 42" style={{ transform: 'rotate(-90deg)' }}>
+                    {data.pieData.map((slice, idx) => {
+                        const total = data.pieData.reduce((a, b) => a + b.val, 0);
+                        const offset = data.pieData.slice(0, idx).reduce((a, b) => a + (b.val / total) * 100, 0);
+                        return (
+                            <motion.circle 
+                                key={`${slice.label}-${selectedMonth}`}
+                                initial={{ strokeDasharray: '0 100' }}
+                                animate={{ strokeDasharray: `${(slice.val / total) * 100} 100` }}
+                                cx="21" cy="21" r="15.915" 
+                                fill="transparent" stroke={slice.color} strokeWidth="5" 
+                                strokeDashoffset={-offset}
+                            />
+                        );
+                    })}
+                </svg>
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                    <span style={{ fontSize: '18px', fontWeight: 800 }}>{data.pieData.reduce((a,b)=>a+b.val, 0)}</span>
+                    <span style={{ fontSize: '8px', color: 'var(--text-dim)' }}>TOTAL</span>
+                </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', width: '100%' }}>
-              <LegendItem color="var(--primary)" label="B2B (Empresas)" />
-              <LegendItem color="var(--accent-cyan)" label="Prototipagem" />
-              <LegendItem color="#F59E0B" label="Hobbyistas" />
-              <LegendItem color="var(--secondary)" label="Educação" />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', width: '100%' }}>
+              {data.pieData.map(slice => (
+                <LegendItem key={slice.label} color={slice.color} label={slice.label} />
+              ))}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Alertas Críticos Section */}
-      <div className="grid-responsive" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px' }}>
+      {/* Seção de Volume de Produção e Alertas (Imagens 2) */}
+      <div style={{ ...mainGridStyle, marginTop: '24px', gridTemplateColumns: '1.2fr 1fr' }}>
         <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '32px' }}>Volume de Produção (Semanal)</h3>
-          <div style={{ height: '200px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around' }}>
-             {[120, 155, 140, 180].map((h, i) => (
-               <div key={i} style={{ textAlign: 'center', width: '25%' }}>
-                 <div style={{ height: `${(h/180)*160}px`, background: 'var(--accent-cyan)', borderRadius: '4px 4px 0 0', margin: '0 auto', width: '60px', opacity: 0.8 }}></div>
-                 <p style={{ marginTop: '12px', fontSize: '11px', color: 'var(--text-muted)' }}>Sem {i+1}</p>
-               </div>
-             ))}
-          </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Volume de Produção (Semanal)</h3>
+                <MoreVertical size={14} color="var(--text-dim)" cursor="pointer" />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '180px', padding: '0 10px', gap: '8px' }}>
+                {data.productionData.map((week, i) => (
+                    <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                        <motion.div 
+                            key={`${selectedMonth}-${selectedYear}-${i}`}
+                            initial={{ height: 0 }}
+                            animate={{ height: `${(week.val / 200) * 100}%` }}
+                            transition={{ duration: 0.8, delay: i * 0.1 }}
+                            style={{ width: '100%', background: 'var(--accent-cyan)', borderRadius: '4px', boxShadow: '0 0 15px rgba(34, 211, 238, 0.2)', position: 'relative' }} 
+                        >
+                            <div style={{ position: 'absolute', top: '-20px', left: '50%', transform: 'translateX(-50%)', fontSize: '10px', fontWeight: 800, color: 'var(--accent-cyan)' }}>{week.val}</div>
+                        </motion.div>
+                        <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>{week.label}</span>
+                    </div>
+                ))}
+            </div>
         </div>
 
         <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-               <AlertTriangle size={18} color="var(--error)" /> Alertas Críticos
-            </h3>
-            <button style={{ background: 'transparent', border: 'none', color: 'var(--primary)', fontSize: '12px', fontWeight: 600 }}>Ver Todos</button>
-          </div>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <AlertItem icon={<AlertTriangle size={14} />} color="#FF4D4D" title="Estoque Baixo: PETG Fibra de Carbono" desc="Abaixo de 1kg. Necessário para Pedido #6842." time="Há 2h" />
-            <AlertItem icon={<Settings size={14} />} color="#F59E0B" title="Manutenção Pendente: Prusa XL #02" desc="Troca de nozzle recomendada (500h de uso)." time="Há 5h" />
-          </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3 style={{ fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <AlertTriangle size={18} color="var(--error)" /> Alertas Críticos
+                </h3>
+                <span style={{ fontSize: '11px', color: 'var(--primary)', cursor: 'pointer', fontWeight: 600 }}>Ver Todos</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+               <AlertItem color="#FF4D4D" title="Estoque Baixo: PETG Fibra Carbono" desc="Abaixo de 5kg. Necessário para Pedido #4392." time="Há 2h" />
+               <AlertItem color="#F59E0B" title="Manutenção Pendente: Prusa XL #02" desc="Troca de nozzle recomendada (600h de uso)." time="Há 5h" />
+               <AlertItem color="#EF4444" title="Falha de Impressão: Voron 2.4" desc="Thermal runaway detectado. Impressão abortada." time="Ontem" />
+               <AlertItem color="var(--text-muted)" title="Atraso na Entrega: Lote II" desc="Cliente notificado sobre atraso de 1 dia." time="Ontem" />
+            </div>
         </div>
       </div>
     </motion.div>
   );
 }
 
-function KPICard({ title, value, change, icon, bgColor, accentColor }: any) {
+function KPICard({ title, value, change, icon, bgColor, accentColor, isRefreshing }: any) {
   return (
-    <div className="glass-panel" style={{ 
-      padding: '24px', 
-      borderRadius: '16px', 
-      background: bgColor, 
-      border: `1px solid ${accentColor}20`,
-      position: 'relative',
-      overflow: 'hidden'
-    }}>
-      <div style={{ position: 'absolute', top: '16px', right: '16px', color: accentColor, opacity: 0.6 }}>
-        {icon}
+    <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', background: bgColor, border: `1px solid ${accentColor}20`, position: 'relative', overflow: 'hidden' }}>
+      <AnimatePresence>
+        {isRefreshing && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(2px)', zIndex: 1 }} />
+        )}
+      </AnimatePresence>
+      <div style={{ position: 'absolute', top: '16px', right: '16px', color: accentColor, opacity: 0.6 }}>{icon}</div>
+      <p style={{ fontSize: '11px', color: 'var(--text-dim)', marginBottom: '12px', fontWeight: 600, letterSpacing: '0.05em' }}>{title.toUpperCase()}</p>
+      <motion.h2 key={value} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} style={{ fontSize: '24px', fontWeight: 800, marginBottom: '8px' }}>{value}</motion.h2>
+      <p style={{ fontSize: '10px', color: accentColor, fontWeight: 700 }}>{change}</p>
+    </div>
+  );
+}
+
+function CustomSelect({ label, options, isOpen, onToggle, onSelect }: any) {
+  return (
+    <div style={{ position: 'relative', minWidth: '110px' }}>
+      <div 
+        onClick={onToggle}
+        style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-glass)', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px' }}
+      >
+        <span style={{ fontWeight: 600 }}>{label}</span>
+        <ChevronDown size={14} style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
       </div>
-      <p style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: '12px' }}>{title}</p>
-      <h2 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '8px' }}>{value}</h2>
-      <p style={{ fontSize: '11px', color: accentColor, fontWeight: 600 }}>{change}</p>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div initial={{ opacity: 0, scale: 0.95, y: 5 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 5 }} style={dropdownMenuStyle}>
+            <div style={{ maxHeight: '200px', overflowY: 'auto', padding: '6px' }}>
+              {options.map((opt: string) => (
+                <div 
+                    key={opt} 
+                    onClick={() => onSelect(opt)} 
+                    style={{ ...dropdownItemStyle, background: label === opt ? 'rgba(138, 43, 226, 0.1)' : 'transparent', color: label === opt ? 'var(--primary)' : 'white' }}
+                >
+                  {opt}
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
 function LegendItem({ color, label }: any) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
       <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: color }}></div>
-      <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{label}</span>
+      <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>
     </div>
   );
 }
 
-function AlertItem({ icon, color, title, desc, time }: any) {
+function AlertItem({ color, title, desc, time }: any) {
   return (
-    <div style={{ 
-      padding: '12px', 
-      background: 'rgba(0,0,0,0.15)', 
-      borderRadius: '10px', 
-      border: `1px solid ${color}15`,
-      display: 'flex',
-      gap: '12px'
-    }}>
-      <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: `${color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: color, flexShrink: 0 }}>
-        {icon}
-      </div>
-      <div style={{ flex: 1 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <h4 style={{ fontSize: '12px', fontWeight: 600 }}>{title}</h4>
-          <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>{time}</span>
+    <div style={{ padding: '14px', background: 'rgba(0,0,0,0.15)', borderRadius: '12px', border: `1px solid ${color}15`, display: 'flex', gap: '12px', position: 'relative' }}>
+        <div style={{ width: '4px', height: '60%', background: color, borderRadius: '4px', position: 'absolute', left: '0', top: '20%' }} />
+        <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <h4 style={{ fontSize: '12px', fontWeight: 700 }}>{title}</h4>
+                <span style={{ fontSize: '9px', color: 'var(--text-dim)' }}>{time}</span>
+            </div>
+            <p style={{ fontSize: '11px', color: 'var(--text-dim)', lineHeight: '1.4' }}>{desc}</p>
         </div>
-        <p style={{ fontSize: '10px', color: 'var(--text-dim)', marginTop: '2px' }}>{desc}</p>
-      </div>
     </div>
   );
 }
 
-const filterSelectStyle: any = {
-  background: 'rgba(255,255,255,0.03)',
-  padding: '8px 16px',
-  borderRadius: '8px',
-  border: '1px solid rgba(255,255,255,0.05)',
-  fontSize: '13px',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '8px',
-  cursor: 'pointer',
-  minWidth: '100px',
-  justifyContent: 'space-between'
-};
-
-const filterIconButtonStyle: any = {
-  width: '36px',
-  height: '36px',
-  background: 'var(--primary)',
-  border: 'none',
-  borderRadius: '8px',
-  color: 'white',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  cursor: 'pointer'
-};
-
-const chartAxisLabel: any = {
-  fontSize: '10px',
-  color: 'var(--text-muted)',
-  width: '14%'
-};
-
-const dropdownMenuStyle: any = {
-  position: 'absolute',
-  top: '100%',
-  left: 0,
-  width: '100%',
-  maxHeight: '200px',
-  overflowY: 'auto',
-  background: 'var(--bg-card)',
-  backdropFilter: 'blur(10px)',
-  borderRadius: '8px',
-  border: '1px solid var(--border-glass)',
-  marginTop: '4px',
-  zIndex: 100,
-  boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
-};
-
-const dropdownItemStyle: any = {
-  padding: '8px 16px',
-  fontSize: '12px',
-  color: 'var(--text-main)',
-  cursor: 'pointer',
-  transition: '0.2s'
-};
+// Estilos Responsivos
+const headerContainerStyle: any = { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' };
+const kpiGridStyle: any = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '32px' };
+const mainGridStyle: any = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' };
+const filterIconButtonStyle: any = { width: '40px', height: '40px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-glass)', borderRadius: '10px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: '0.2s' };
+const chartAxisLabel: any = { fontSize: '10px', color: 'var(--text-muted)', width: '14%', textAlign: 'center' };
+const dropdownMenuStyle: any = { position: 'absolute', top: '48px', left: 0, width: '140px', background: '#0a0a0a', border: '1px solid var(--border-glass)', borderRadius: '12px', zIndex: 110, boxShadow: '0 10px 40px rgba(0,0,0,0.8)' };
+const dropdownItemStyle: any = { padding: '10px 14px', fontSize: '13px', cursor: 'pointer', borderRadius: '8px', transition: '0.2s' };

@@ -21,8 +21,10 @@ import {
   Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSettings } from '../contexts/SettingsContext';
 
 export default function OrcamentosView() {
+  const { currencySymbol } = useSettings();
   const [showAddModal, setShowAddModal] = useState(false);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -39,11 +41,15 @@ export default function OrcamentosView() {
   const [totalFinal, setTotalFinal] = useState(0);
 
   const [orcamentos, setOrcamentos] = useState([
-    { id: 'Q-2048', client: 'Aerospace Dynamics Inc.', date: '24 Out, 2023', total: 'R$ 1.250,00', status: 'PENDENTE', unitValue: '1250', quantity: '1', shipping: '0' },
-    { id: 'Q-2047', client: 'Medical Prothetics LLC', date: '22 Out, 2023', total: 'R$ 3.400,00', status: 'APROVADO', unitValue: '1700', quantity: '2', shipping: '0' },
-    { id: 'Q-2046', client: 'Robotics Core', date: '20 Out, 2023', total: 'R$ 850,50', status: 'ENVIADO', unitValue: '850.5', quantity: '1', shipping: '0' },
-    { id: 'Q-2045', client: 'Local Hobbyist Group', date: '18 Out, 2023', total: 'R$ 120,00', status: 'REJEITADO', unitValue: '120', quantity: '1', shipping: '0' },
+    { id: 'Q-2048', client: 'Aerospace Dynamics Inc.', date: '24 Out, 2023', total: 1250.00, status: 'PENDENTE', unitValue: '1250', quantity: '1', shipping: '0' },
+    { id: 'Q-2047', client: 'Medical Prothetics LLC', date: '22 Out, 2023', total: 3400.00, status: 'APROVADO', unitValue: '1700', quantity: '2', shipping: '0' },
+    { id: 'Q-2046', client: 'Robotics Core', date: '20 Out, 2023', total: 850.50, status: 'ENVIADO', unitValue: '850.5', quantity: '1', shipping: '0' },
+    { id: 'Q-2045', client: 'Local Hobbyist Group', date: '18 Out, 2023', total: 120.00, status: 'REJEITADO', unitValue: '120', quantity: '1', shipping: '0' },
   ]);
+
+  // KPIs dinâmicos
+  const pendentesCount = orcamentos.filter(o => o.status === 'PENDENTE').length;
+  const receitaEstimada = orcamentos.reduce((acc, curr) => acc + (typeof curr.total === 'number' ? curr.total : 0), 0);
 
   useEffect(() => {
     const q = parseFloat(quantity) || 0;
@@ -60,25 +66,28 @@ export default function OrcamentosView() {
       return;
     }
 
-    const data = {
-      client: client.trim(),
-      unitValue: unitValue.toString(),
-      quantity: quantity.toString(),
-      shipping: shipping.toString(),
-      total: totalFinal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-    };
-
     if (editingItem) {
       setOrcamentos(prev => prev.map(item => 
-        item.id === editingItem.id ? { ...item, ...data } : item
+        item.id === editingItem.id ? { 
+          ...item, 
+          client: client.trim(),
+          unitValue: unitValue.toString(),
+          quantity: quantity.toString(),
+          shipping: shipping.toString(),
+          total: totalFinal 
+        } : item
       ));
       alert('Orçamento atualizado!');
     } else {
       const novoOrcamento = {
         id: `Q-${Math.floor(Math.random() * 9000) + 1000}`,
+        client: client.trim(),
         date: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
         status: 'PENDENTE',
-        ...data
+        unitValue: unitValue.toString(),
+        quantity: quantity.toString(),
+        shipping: shipping.toString(),
+        total: totalFinal
       };
       setOrcamentos(prev => [novoOrcamento, ...prev]);
       alert('Orçamento gerado!');
@@ -105,8 +114,12 @@ export default function OrcamentosView() {
   };
 
   const handleApprove = (id: string) => {
-    setOrcamentos(prev => prev.map(item => item.id === id ? { ...item, status: 'APROVADO' } : item));
+    setOrcamentos(prev => prev.map(item => 
+      item.id === id ? { ...item, status: 'APROVADO' } : item
+    ));
     setActiveMenu(null);
+    // Notificação persistente ou alert
+    console.log(`Orçamento ${id} aprovado com sucesso.`);
   };
 
   const resetForm = () => {
@@ -133,50 +146,52 @@ export default function OrcamentosView() {
       </div>
 
       <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '48px' }}>
-         <StatCard label="APROVAÇÕES PENDENTES" value={orcamentos.filter(o => o.status === 'PENDENTE').length.toString()} icon={Clock} color="#F59E0B" />
+         <StatCard label="APROVAÇÕES PENDENTES" value={pendentesCount.toString()} icon={Clock} color="#F59E0B" />
          <StatCard label="TAXA DE CONVERSÃO" value="68%" subValue="+5%" icon={TrendingUp} color="var(--secondary)" />
-         <StatCard label="RECEITA TOTAL" value="R$ 24.800" subValue="Equipamento" icon={DollarSign} color="var(--primary)" />
+         <StatCard label="RECEITA ESTIMADA" value={`${currencySymbol} ${receitaEstimada.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`} subValue="Fila" icon={DollarSign} color="var(--primary)" />
       </div>
 
       <div className="glass-panel" style={{ borderRadius: '16px', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-          <thead>
-            <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-glass)', background: 'rgba(255,255,255,0.02)' }}>
-              <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>ID</th>
-              <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>Cliente</th>
-              <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>Emitido</th>
-              <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>Total Final</th>
-              <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>Status</th>
-              <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500, textAlign: 'right' }}>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orcamentos.map((item) => (
-              <tr key={item.id} style={{ borderBottom: '1px solid var(--border-glass)' }}>
-                <td style={{ padding: '16px 24px', fontWeight: 600 }}>{item.id}</td>
-                <td style={{ padding: '16px 24px' }}>{item.client}</td>
-                <td style={{ padding: '16px 24px', color: 'var(--text-dim)' }}>{item.date}</td>
-                <td style={{ padding: '16px 24px', fontWeight: 700 }}>{item.total}</td>
-                <td style={{ padding: '16px 24px' }}><StatusBadge status={item.status} /></td>
-                <td style={{ padding: '16px 24px', position: 'relative', textAlign: 'right' }}>
-                  <button onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === item.id ? null : item.id); }} style={actionTriggerStyle}>
-                    <MoreHorizontal size={20} />
-                  </button>
-                  <AnimatePresence>
-                    {activeMenu === item.id && (
-                      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} style={dropdownStyle}>
-                         <div style={dropdownItemStyle} onClick={() => handleEdit(item)}><Edit2 size={14} /> Editar</div>
-                         <div style={dropdownItemStyle} onClick={() => { setActiveMenu(null); alert('PDF gerado!'); }}><FileText size={14} /> Enviar PDF</div>
-                         <div style={dropdownItemStyle} onClick={() => handleApprove(item.id)}><CheckCircle size={14} /> Aprovar</div>
-                         <div style={{ ...dropdownItemStyle, color: 'var(--error)' }} onClick={() => handleDelete(item.id)}><Trash2 size={14} /> Excluir</div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </td>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <thead>
+              <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-glass)', background: 'rgba(255,255,255,0.02)' }}>
+                <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>ID</th>
+                <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>Cliente</th>
+                <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>Emitido</th>
+                <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>Total Final</th>
+                <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>Status</th>
+                <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500, textAlign: 'right' }}>Ações</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {orcamentos.map((item) => (
+                <tr key={item.id} style={{ borderBottom: '1px solid var(--border-glass)' }}>
+                  <td style={{ padding: '16px 24px', fontWeight: 600 }}>{item.id}</td>
+                  <td style={{ padding: '16px 24px' }}>{item.client}</td>
+                  <td style={{ padding: '16px 24px', color: 'var(--text-dim)' }}>{item.date}</td>
+                  <td style={{ padding: '16px 24px', fontWeight: 700 }}>{currencySymbol} {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td style={{ padding: '16px 24px' }}><StatusBadge status={item.status} /></td>
+                  <td style={{ padding: '16px 24px', position: 'relative', textAlign: 'right' }}>
+                    <button onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === item.id ? null : item.id); }} style={actionTriggerStyle}>
+                      <MoreHorizontal size={20} />
+                    </button>
+                    <AnimatePresence>
+                      {activeMenu === item.id && (
+                        <motion.div initial={{ opacity: 0, scale: 0.95, y: -10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -10 }} style={dropdownStyle}>
+                           <div style={dropdownItemStyle} onClick={() => handleEdit(item)}><Edit2 size={14} /> Editar</div>
+                           <div style={dropdownItemStyle} onClick={() => { setActiveMenu(null); alert('PDF gerado!'); }}><FileText size={14} /> Enviar PDF</div>
+                           <div style={dropdownItemStyle} onClick={() => handleApprove(item.id)}><CheckCircle size={14} /> Aprovar</div>
+                           <div style={{ ...dropdownItemStyle, color: 'var(--error)' }} onClick={() => handleDelete(item.id)}><Trash2 size={14} /> Excluir</div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <AnimatePresence>
@@ -200,10 +215,10 @@ export default function OrcamentosView() {
                      </div>
                    </div>
                    <div className="input-group">
-                     <label>Valor Unitário (R$)</label>
+                     <label>Valor Unitário ({currencySymbol})</label>
                      <div style={{ position: 'relative' }}>
-                        <DollarSign size={16} style={iconOverlayStyle} />
-                        <input type="text" placeholder="0,00" value={unitValue} onChange={e => setUnitValue(e.target.value)} style={iconInputStyle} />
+                        <div style={iconOverlayStyle}>{currencySymbol}</div>
+                        <input type="text" placeholder="0,00" value={unitValue} onChange={e => setUnitValue(e.target.value)} style={{ ...iconInputStyle, paddingLeft: '36px' }} />
                      </div>
                    </div>
                 </div>
@@ -217,10 +232,10 @@ export default function OrcamentosView() {
                      </div>
                    </div>
                    <div className="input-group">
-                     <label>Frete (R$)</label>
+                     <label>Frete ({currencySymbol})</label>
                      <div style={{ position: 'relative' }}>
-                        <DollarSign size={16} style={iconOverlayStyle} />
-                        <input type="text" value={shipping} onChange={e => setShipping(e.target.value)} style={iconInputStyle} />
+                        <div style={iconOverlayStyle}>{currencySymbol}</div>
+                        <input type="text" value={shipping} onChange={e => setShipping(e.target.value)} style={{ ...iconInputStyle, paddingLeft: '36px' }} />
                      </div>
                    </div>
                 </div>
@@ -229,9 +244,9 @@ export default function OrcamentosView() {
                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: '15px', fontWeight: 700 }}>Total Final:</span>
                       <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--secondary)' }}>
-                        {totalFinal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                      </span>
-                   </div>
+                        {currencySymbol} {totalFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                       </span>
+                    </div>
                 </div>
 
                 <button className="btn-primary" style={{ width: '100%', height: '54px', fontSize: '16px' }} onClick={handleSave}>
@@ -273,10 +288,10 @@ function StatusBadge({ status }: { status: string }) {
 
 function Modal({ title, children, onClose }: any) {
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={modalOverlayStyle} onClick={onClose}>
-      <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} style={modalContentStyle} onClick={e => e.stopPropagation()}>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={modalOverlayStyle} onClick={onClose}>
+      <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} style={modalContentStyle} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 700 }}>{title}</h2>
+          <h2 style={{ fontSize: '18px', fontWeight: 700 }}>{title}</h2>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer' }}><X size={24} /></button>
         </div>
         {children}

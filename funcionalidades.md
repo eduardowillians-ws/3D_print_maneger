@@ -5,13 +5,15 @@ Este documento rastreia o progresso do desenvolvimento do sistema **PrintPulse 3
 ## 🎨 Sistema Base & UI/UX (Industrial Precision)
 - [x] Design System "Obsidian Dark" com Glassmorphism.
 - [x] Suporte a Modo Claro/Escuro (Toggle funcional).
-- [x] Navegação lateral (Sidebar) responsiva.
+- [x] Navegação lateral (Sidebar) responsiva com Hamburger Menu para Mobile.
 - [x] Animações fluidas com Framer Motion.
 - [x] Login integrado ao Supabase com estética premium.
 
 ## 📊 Módulo: Painel (Dashboard)
 - [x] Cards de KPI (Ganhos, Ordens, Impressoras, Materiais).
-- [x] Gráfico de evolução mensal (Mock).
+- [x] Gráfico de evolução mensal (Mock) e Distribuição de Clientes.
+- [x] Fila de Produção Ativa integrada ao centro de controle.
+- [x] Alertas Críticos (Estoque e Manutenção).
 - [x] Filtros interativos de Mês e Ano.
 - [ ] Integração real com dados do Supabase.
 
@@ -37,15 +39,18 @@ Este documento rastreia o progresso do desenvolvimento do sistema **PrintPulse 3
 - [x] Edição de produtos existentes via modal.
 - [x] Simulação de Download de arquivos STL/3MF.
 
-## 📑 Módulo: Orçamentos (Próximo Passo)
-- [ ] Gerador de orçamentos PDF.
-- [ ] Cálculo de frete integrado.
-- [ ] Status de aprovação pelo cliente.
+## 📑 Módulo: Orçamentos
+- [x] Criação de orçamentos com cálculo automático (Qtd x Valor + Frete).
+- [x] Status de aprovação dinâmico (Aprovar/Rejeitar).
+- [x] Edição e Exclusão de orçamentos existentes.
+- [ ] Gerador de orçamentos PDF real (download).
 
-## ⚙️ Módulo: Produção (Próximo Passo)
-- [ ] Fila de impressão integrada ao estoque.
-- [ ] Controle de tempo real de finalização.
-- [ ] Histórico de falhas por peça.
+## ⚙️ Módulo: Produção
+- [x] Quadro Kanban (Fila -> Imprimindo -> Concluido).
+- [x] Lançamento de novos trabalhos via modal.
+- [x] Movimentação fluida entre estágios de produção.
+- [x] Sistema de Arquivamento e Histórico de Produção.
+- [x] Monitoramento de progresso individual por peça.
 
 ## 👥 Módulo: Clientes (Próximo Passo)
 - [ ] Cadastro completo de clientes (CRM).
