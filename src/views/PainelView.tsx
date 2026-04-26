@@ -13,20 +13,29 @@ export default function PainelView() {
   const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
   const years = ['2023', '2024', '2025'];
 
+  const getDaysInMonth = (monthName: string, year: string) => {
+    const monthIndex = months.indexOf(monthName);
+    return new Date(parseInt(year), monthIndex + 1, 0).getDate();
+  };
+
   // Dados mockados que mudam com os filtros
   const getDynamicData = (month: string, year: string) => {
     const seed = (month.length * 100) + (parseInt(year) % 10);
+    const daysInMonth = getDaysInMonth(month, year);
+    
+    // Gerar produção diária baseada no seed e no mês
+    const dailyProduction = Array.from({ length: daysInMonth }, (_, i) => {
+      const daySeed = (seed + i) * 1.5;
+      const val = Math.floor(10 + (Math.sin(daySeed) * 5) + (seed % 15));
+      return { label: (i + 1).toString(), val: val < 5 ? 5 : val };
+    });
+
     return {
       receita: (12450 + seed).toLocaleString('pt-BR'),
       lucro: (3200 + (seed / 2)).toLocaleString('pt-BR'),
       impressoes: 5 + (seed % 5),
       orcamentos: 10 + (seed % 8),
-      productionData: [
-        { label: 'Sem 1', val: 120 + (seed % 30) },
-        { label: 'Sem 2', val: 150 - (seed % 20) },
-        { label: 'Sem 3', val: 140 + (seed % 40) },
-        { label: 'Sem 4', val: 180 - (seed % 10) }
-      ],
+      productionData: dailyProduction,
       chartData: [
         65 + (seed % 10), 45 + (seed % 15), 85 - (seed % 5), 55 + (seed % 20), 
         95 - (seed % 10), 75 + (seed % 5), 40 + (seed % 15)
@@ -156,26 +165,45 @@ export default function PainelView() {
 
       {/* Seção de Volume de Produção e Alertas (Imagens 2) */}
       <div style={{ ...mainGridStyle, marginTop: '24px', gridTemplateColumns: '1.2fr 1fr' }}>
-        <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
+        <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', overflow: 'hidden' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Volume de Produção (Semanal)</h3>
+                <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Volume de Produção (Diário - {selectedMonth})</h3>
                 <MoreVertical size={14} color="var(--text-dim)" cursor="pointer" />
             </div>
-            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '180px', padding: '0 10px', gap: '8px' }}>
-                {data.productionData.map((week, i) => (
-                    <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                        <motion.div 
-                            key={`${selectedMonth}-${selectedYear}-${i}`}
-                            initial={{ height: 0 }}
-                            animate={{ height: `${(week.val / 200) * 100}%` }}
-                            transition={{ duration: 0.8, delay: i * 0.1 }}
-                            style={{ width: '100%', background: 'var(--accent-cyan)', borderRadius: '4px', boxShadow: '0 0 15px rgba(34, 211, 238, 0.2)', position: 'relative' }} 
-                        >
-                            <div style={{ position: 'absolute', top: '-20px', left: '50%', transform: 'translateX(-50%)', fontSize: '10px', fontWeight: 800, color: 'var(--accent-cyan)' }}>{week.val}</div>
-                        </motion.div>
-                        <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>{week.label}</span>
-                    </div>
-                ))}
+            <div style={{ overflowX: 'auto', paddingBottom: '12px', cursor: 'grab' }} className="custom-scrollbar">
+                <div style={{ display: 'flex', alignItems: 'flex-end', height: '180px', gap: '8px', minWidth: `${data.productionData.length * 36}px`, padding: '0 4px' }}>
+                    {data.productionData.map((day, i) => {
+                        const maxValue = 40; 
+                        const heightPercent = (day.val / maxValue) * 100;
+
+                        return (
+                            <div key={i} style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', minWidth: '28px' }}>
+                                <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end', position: 'relative' }}>
+                                    <motion.div 
+                                        key={`${selectedMonth}-${selectedYear}-${i}`}
+                                        initial={{ height: 0 }}
+                                        animate={{ height: `${heightPercent}%` }}
+                                        transition={{ duration: 0.8, delay: i * 0.02 }}
+                                        style={{ 
+                                            width: '100%', 
+                                            background: 'linear-gradient(to top, var(--primary) 0%, rgba(138, 43, 226, 0.4) 100%)', 
+                                            borderRadius: '6px 6px 2px 2px', 
+                                            boxShadow: '0 0 15px rgba(138, 43, 226, 0.2)', 
+                                            position: 'relative',
+                                            border: '1px solid rgba(138, 43, 226, 0.3)'
+                                        }} 
+                                        title={`Dia ${day.label}: ${day.val} peças`}
+                                    >
+                                        <div style={{ position: 'absolute', top: '-20px', left: '50%', transform: 'translateX(-50%)', fontSize: '9px', fontWeight: 800, color: 'var(--primary)' }}>
+                                            {day.val}
+                                        </div>
+                                    </motion.div>
+                                </div>
+                                <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 600 }}>{day.label}</span>
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
         </div>
 
