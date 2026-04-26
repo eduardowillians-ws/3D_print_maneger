@@ -43,6 +43,8 @@ export default function ClientsView() {
   const [showModal, setShowModal] = useState(false);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Estados para o formulário
@@ -89,6 +91,12 @@ export default function ClientsView() {
     closeModal();
   };
 
+  const handleViewHistory = (client: Client) => {
+    setSelectedClient(client);
+    setShowHistory(true);
+    setActiveMenu(null);
+  };
+
   const handleEdit = (client: Client) => {
     setEditingClient(client);
     setName(client.name);
@@ -108,7 +116,9 @@ export default function ClientsView() {
 
   const closeModal = () => {
     setShowModal(false);
+    setShowHistory(false);
     setEditingClient(null);
+    setSelectedClient(null);
     setName('');
     setEmail('');
     setPhone('');
@@ -179,7 +189,7 @@ export default function ClientsView() {
                           {activeMenu === client.id && (
                             <motion.div initial={{ opacity: 0, scale: 0.95, y: -10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -10 }} style={dropdownStyle}>
                               <div style={dropdownItemStyle} onClick={() => handleEdit(client)}><Edit2 size={14} /> Editar</div>
-                              <div style={dropdownItemStyle} onClick={() => { setActiveMenu(null); alert('Histórico do cliente aberto!'); }}><History size={14} /> Histórico</div>
+                              <div style={dropdownItemStyle} onClick={() => handleViewHistory(client)}><History size={14} /> Histórico</div>
                               <div style={{ ...dropdownItemStyle, color: 'var(--error)' }} onClick={() => handleDelete(client.id)}><Trash2 size={14} /> Excluir Cliente</div>
                             </motion.div>
                           )}
@@ -231,8 +241,85 @@ export default function ClientsView() {
              </div>
           </Modal>
         )}
+
+        {showHistory && selectedClient && (
+          <HistoryDrawer client={selectedClient} onClose={closeModal} />
+        )}
       </AnimatePresence>
     </motion.div>
+  );
+}
+
+function HistoryDrawer({ client, onClose }: { client: Client, onClose: () => void }) {
+  const { currencySymbol } = useSettings();
+  
+  // Mock de histórico de pedidos
+  const orders = [
+    { id: 'ORD-4392', product: 'Engrenagens Helicoidais (12x)', date: '10/04/2024', status: 'CONCLUÍDO', val: 450.00 },
+    { id: 'ORD-4210', product: 'Prototipagem Case Eletrônica', date: '28/03/2024', status: 'CONCLUÍDO', val: 1200.00 },
+    { id: 'ORD-4105', product: 'Suportes Industriais TPU', date: '05/03/2024', status: 'CONCLUÍDO', val: 850.50 },
+    { id: 'ORD-3988', product: 'Lote Conectores Nylon CF', date: '12/02/2024', status: 'CONCLUÍDO', val: 2300.00 },
+  ];
+
+  return (
+    <>
+      <motion.div 
+        initial={{ opacity: 0 }} 
+        animate={{ opacity: 1 }} 
+        exit={{ opacity: 0 }} 
+        style={modalOverlayStyle} 
+        onClick={onClose} 
+      />
+      <motion.div 
+        initial={{ x: '100%' }} 
+        animate={{ x: 0 }} 
+        exit={{ x: '100%' }} 
+        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        style={drawerStyle}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+          <div>
+            <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--primary)', letterSpacing: '0.1em' }}>HISTÓRICO OPERACIONAL</span>
+            <h2 style={{ fontSize: '20px', fontWeight: 800 }}>{client.name}</h2>
+          </div>
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', cursor: 'pointer' }}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '32px' }}>
+           <div style={metricBoxStyle}>
+              <span style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600 }}>LTV TOTAL</span>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--secondary)' }}>{currencySymbol} {client.ltv.toLocaleString('pt-BR')}</div>
+           </div>
+           <div style={metricBoxStyle}>
+              <span style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600 }}>PEDIDOS</span>
+              <div style={{ fontSize: '18px', fontWeight: 800 }}>{client.orders} unidades</div>
+           </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-muted)' }}>Últimos Pedidos</h3>
+          {orders.map(order => (
+            <div key={order.id} style={orderCardStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary)' }}>#{order.id}</span>
+                <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(34, 197, 94, 0.1)', color: '#22C55E', fontWeight: 800 }}>{order.status}</span>
+              </div>
+              <p style={{ fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>{order.product}</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-dim)' }}>
+                <span>{order.date}</span>
+                <span style={{ fontWeight: 700, color: 'white' }}>{currencySymbol} {order.val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <button className="btn-primary" style={{ width: '100%', height: '54px', marginTop: 'auto' }} onClick={() => alert('Novo orçamento para este cliente...')}>
+          <Plus size={18} /> Novo Orçamento
+        </button>
+      </motion.div>
+    </>
   );
 }
 
@@ -270,3 +357,7 @@ const modalOverlayStyle: any = { position: 'fixed', inset: 0, background: 'rgba(
 const modalContentStyle: any = { width: '100%', maxWidth: '500px', background: 'var(--bg-main)', border: '1px solid var(--border-glass)', borderRadius: '24px', padding: '32px' };
 const dropdownStyle: any = { position: 'absolute', right: '0', top: '40px', background: '#0a0a0a', border: '1px solid var(--border-glass)', borderRadius: '12px', padding: '8px', zIndex: 100, minWidth: '180px', boxShadow: '0 10px 40px rgba(0,0,0,0.8)' };
 const dropdownItemStyle: any = { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', color: 'white', transition: '0.2s', textAlign: 'left' };
+
+const drawerStyle: any = { position: 'fixed', right: 0, top: 0, height: '100vh', width: '100%', maxWidth: '400px', background: 'var(--bg-main)', borderLeft: '1px solid var(--border-glass)', padding: '40px 32px', zIndex: 1100, boxShadow: '-20px 0 60px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column' };
+const metricBoxStyle: any = { padding: '20px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '8px' };
+const orderCardStyle: any = { padding: '16px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-glass)', borderRadius: '12px', transition: '0.2s' };
