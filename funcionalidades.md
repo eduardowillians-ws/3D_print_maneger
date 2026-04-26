@@ -77,4 +77,19 @@ Este documento rastreia o progresso do desenvolvimento do sistema **PrintPulse 3
 - [x] Mobile Refresh: Menu Drawer responsivo com fechamento automático.
 
 ---
+## 🏗️ Diagnóstico de Dados & Integração (Supabase)
+### ✅ Estrutura Atual (Ok)
+- **Gestão de Máquinas**: Tabela `printers` com telemetria básica e status.
+- **Financeiro**: Tabela `transactions` pronta para fluxo de caixa real.
+- **CRM**: Tabela `clients` com suporte a tags e contatos.
+
+### ⚠️ Gaps de Inteligência (A implementar)
+- **Manutenções**: Criar `maintenance_logs` para rastrear custos de peças/serviços.
+- **Cruzamento Produção/CRM**: Ligar `production_jobs` ao `client_id`.
+- **Rastreabilidade de Insumos**: Ligar `production_jobs` ao `product_id` e `material_id`.
+
+### 🚀 Próximos Passos Técnicos
+1. **Refinamento de Schema**: Adicionar FKs (Foreign Keys) faltantes.
+2. **Postgres Views**: Criar views de agregação para relatórios (BI).
+3. **Substituição de Mocks**: Transição das funções `getReportsData` para dados reais do banco.
 *Atualizado em: 26 de Abril de 2026*
