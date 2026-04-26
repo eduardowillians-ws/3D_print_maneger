@@ -11,11 +11,11 @@ Este documento rastreia o progresso do desenvolvimento do sistema **PrintPulse 3
 
 ## 📊 Módulo: Painel (Dashboard)
 - [x] Cards de KPI (Ganhos, Ordens, Impressoras, Materiais).
-- [x] Gráfico de evolução mensal (Mock) e Distribuição de Clientes.
+- [x] Gráfico de produção diária com scroll responsivo e visual "Financial Glow".
 - [x] Fila de Produção Ativa integrada ao centro de controle.
 - [x] Alertas Críticos (Estoque e Manutenção).
 - [x] Filtros interativos de Mês e Ano.
-- [ ] Integração real com dados do Supabase.
+- [ ] Integração real com dados do Supabase (Aguardando OK).
 
 ## 🖨️ Módulo: Impressoras
 - [x] Monitoramento de status das máquinas.
@@ -52,10 +52,10 @@ Este documento rastreia o progresso do desenvolvimento do sistema **PrintPulse 3
 - [x] Sistema de Arquivamento e Histórico de Produção.
 - [x] Monitoramento de progresso individual por peça.
 
-## 👥 Módulo: Clientes (Próximo Passo)
-- [ ] Cadastro completo de clientes (CRM).
-- [ ] Histórico de pedidos por cliente.
-- [ ] Tags de classificação (Recorrente, VIP, etc).
+## 👥 Módulo: Clientes (SaaS Premium)
+- [x] Cadastro completo de clientes (CRM) com busca e filtros.
+- [x] Histórico operacional detalhado em Drawer lateral.
+- [ ] Tags de classificação recorrente (Lógica de prioridade e perfis).
 
 ## 💰 Módulo: Financeiro
 - [x] Fluxo de caixa detalhado com KPI cards.
@@ -64,6 +64,12 @@ Este documento rastreia o progresso do desenvolvimento do sistema **PrintPulse 3
 - [x] Lançamento de novas transações via modal.
 - [ ] Relatório de gastos com energia e manutenção (Cálculo Automático).
 
+## 📊 Módulo: Relatórios (Estratégico)
+- [ ] Dashboard de BI com análise de performance.
+- [ ] Gráfico de consumo energético e custos operacionais.
+- [ ] Filtro por período (Mês/Ano).
+- [ ] **Gerador de PDF Customizado** (Relação completa de produção e financeiro).
+
 ## 🛠️ Infraestrutura & Persistência (Back-end)
 - [x] Conexão remota vinculada ao projeto `noxbszwzxpvwjmnlghhw`.
 - [x] Estrutura completa de tabelas (SQL) executada com sucesso.
@@ -71,4 +77,4 @@ Este documento rastreia o progresso do desenvolvimento do sistema **PrintPulse 3
 - [x] Mobile Refresh: Menu Drawer responsivo com fechamento automático.
 
 ---
-*Atualizado em: 25 de Abril de 2026*
+*Atualizado em: 26 de Abril de 2026*

@@ -31,6 +31,7 @@ import ProdutosView from '../views/ProdutosView';
 import OrcamentosView from '../views/OrcamentosView';
 import ProducaoView from '../views/ProducaoView';
 import ClientsView from '../views/ClientsView';
+import ReportsView from '../views/ReportsView';
 import FinancialView from '../views/FinancialView';
 import SettingsView from '../views/SettingsView';
 
@@ -116,6 +117,7 @@ export default function Dashboard() {
           <NavItem icon={<FileText size={20} />} label="Orçamentos" active={activeTab === 'Orçamentos'} onClick={() => handleTabChange('Orçamentos')} />
           <NavItem icon={<Workflow size={20} />} label="Produção" active={activeTab === 'Produção'} onClick={() => handleTabChange('Produção')} />
           <NavItem icon={<Users size={20} />} label="Clientes" active={activeTab === 'Clientes'} onClick={() => handleTabChange('Clientes')} />
+          <NavItem icon={<FileText size={20} />} label="Relatórios" active={activeTab === 'Relatórios'} onClick={() => handleTabChange('Relatórios')} />
           <NavItem icon={<Wallet size={20} />} label="Financeiro" active={activeTab === 'Financeiro'} onClick={() => handleTabChange('Financeiro')} />
         </nav>
 
@@ -208,6 +210,7 @@ export default function Dashboard() {
           {activeTab === 'Orçamentos' && <OrcamentosView />}
           {activeTab === 'Produção' && <ProducaoView />}
           {activeTab === 'Clientes' && <ClientsView />}
+          {activeTab === 'Relatórios' && <ReportsView />}
           {activeTab === 'Financeiro' && <FinancialView />}
           {activeTab === 'Configurações' && <SettingsView />}
         </div>
