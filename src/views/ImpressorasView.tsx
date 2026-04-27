@@ -323,7 +323,7 @@ export default function ImpressorasView() {
                     <button style={startButtonStyle} onClick={() => alert('Para iniciar um trabalho, vá ao módulo de Produção e atribua esta impressora ao job.')}>Iniciar Trabalho</button>
                 )}
                 {printer.status === 'MANUTENCAO' && (
-                    <button style={resolveButtonStyle} onClick={() => alert('Limpando logs de erro...')}>Resolver</button>
+                    <button style={resolveButtonStyle} onClick={() => handleRemoveMaintenance(printer.id)}>Resolver</button>
                 )}
 
                 <div style={{ position: 'relative' }}>
