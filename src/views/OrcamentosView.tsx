@@ -41,6 +41,7 @@ export default function OrcamentosView() {
   const [orcamentos, setOrcamentos] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [clientsList, setClientsList] = useState<any[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
 
   useEffect(() => {
     loadQuotes();
@@ -50,7 +51,7 @@ export default function OrcamentosView() {
   const loadClients = async () => {
     const { data } = await clientsApi.getAll();
     if (data) {
-      setClientsList(data.map(c => ({ id: c.id, name: c.name })));
+      setClientsList(data);
     }
   };
 
@@ -102,7 +103,7 @@ export default function OrcamentosView() {
       total_value: totalFinal,
       status: 'PENDENTE' as const,
       expiry_date: expiryDate || null,
-      client_id: null
+      client_id: selectedClientId || null
     };
 
     if (editingItem) {
@@ -180,6 +181,7 @@ export default function OrcamentosView() {
   const resetForm = () => {
     setClient(''); setQuantity('1'); setUnitValue('0'); setShipping('0');
     setExpiryDate(''); setEditingItem(null); setShowAddModal(false);
+    setSelectedClientId('');
   };
 
   return (
@@ -269,13 +271,18 @@ export default function OrcamentosView() {
                 <div style={{ position: 'relative' }}>
                   <User size={16} style={iconOverlayStyle} />
                   <select 
-                    value={client} 
-                    onChange={e => setClient(e.target.value)} 
+                    value={selectedClientId} 
+                    onChange={e => {
+                      const selectedId = e.target.value;
+                      setSelectedClientId(selectedId);
+                      const selectedClient = clientsList.find(c => c.id === selectedId);
+                      setClient(selectedClient?.name || '');
+                    }} 
                     style={{ ...iconInputStyle, cursor: 'pointer' }}
                   >
                     <option value="">Selecione um cliente...</option>
                     {clientsList.map(c => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
+                      <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
                 </div>
