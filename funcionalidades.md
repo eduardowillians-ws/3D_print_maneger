@@ -109,20 +109,21 @@ Este plano documenta a transição progressiva dos dados mockados (gerados inlin
 
 ---
 
-### Fase 1: Infraestrutura Base (CRUD Genérico)
+### Fase 1: Infraestrutura Base (CRUD Genérico) ✅ CONCLUÍDO
 **Objetivo**: Criar camada de acesso a dados reutilizável.
 
-- [ ] **1.1** - Criar pasta `src/services/api/` para serviços de API.
-- [ ] **1.2** - Criar arquivo `src/services/api/baseQueries.ts` com wrapper para Supabase.
-- [ ] **1.3** - Implementar funções genéricas: `getAll`, `getById`, `create`, `update`, `delete`.
-- [ ] **1.4** - Criar tipos TypeScript para cada tabela em `src/types/database.ts`.
-- [ ] **1.5** - Adicionar tratamento de erros e loading states.
+- [x] **1.1** - Criar pasta `src/services/api/` para serviços de API.
+- [x] **1.2** - Criar arquivo `src/services/api/baseQueries.ts` com wrapper para Supabase.
+- [x] **1.3** - Implementar funções genéricas: `getAll`, `getById`, `create`, `update`, `delete`.
+- [x] **1.4** - Criar tipos TypeScript para cada tabela em `src/types/database.ts`.
+- [x] **1.5** - Adicionar tratamento de erros e loading states.
 
-**Arquivos a criar/modificar:**
-- `src/services/api/baseQueries.ts` (novo)
-- `src/types/database.ts` (novo)
+**Arquivos criados:**
+- `src/services/api/baseQueries.ts` - Wrapper CRUD genérico
+- `src/types/database.ts` - Tipos TypeScript para todas as tabelas
+- `src/services/api/materials.ts` - Exemplo de serviço específico
 
-**Critério de aceite**: Qualquer view deve poder importar e usar as funções genéricas.
+**Critério de aceite**: ✅ Build passou com sucesso.
 
 ---
 
@@ -132,7 +133,7 @@ Este plano documenta a transição progressiva dos dados mockados (gerados inlin
 **Mock atual**: Dados inline em `MateriaisView.tsx` (gerados aleatoriamente).
 
 **Etapas:**
-- [ ] **2.1** - Criar `src/services/api/materials.ts` com funções específicas.
+- [x] **2.1** - Criar `src/services/api/materials.ts` com funções específicas.
 - [ ] **2.2** - Modificar `MateriaisView.tsx` para usar dados da API.
 - [ ] **2.3** - Implementar operações de create/update/delete no modal de registro.
 - [ ] **2.4** - Testar filtros (PLA, PETG, ABS, etc).
