@@ -322,7 +322,7 @@ const currentMonthIndexForHighlight = filterMonth === 'Todos'
           <KPICard title="TICKET MÉDIO" value={`${currencySymbol} ${currentData.ticket}`} change="Por transação" icon={<TrendingUp size={18} />} bgColor="rgba(22, 189, 202, 0.05)" accentColor="var(--accent-cyan)" />
       </div>
 
-      <div className="glass-panel" style={{ padding: '32px', borderRadius: '24px', marginBottom: '32px', position: 'relative', overflowX: 'visible' }}>
+      <div className="glass-panel" style={{ padding: '32px', borderRadius: '24px', marginBottom: '32px', position: 'relative', zIndex: 1 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '12px' }}>
             <Calendar size={18} color="var(--primary)" /> Fluxo de Caixa Mensal
@@ -361,7 +361,7 @@ const currentMonthIndexForHighlight = filterMonth === 'Todos'
             );
           })}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 20px', color: 'var(--text-dim)', fontSize: '11px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 20px 4px', color: 'var(--text-dim)', fontSize: '11px', borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: '8px' }}>
           {months.slice(1).map((m, i) => (
             <span key={i} style={{ flex: 1, textAlign: 'center' }}>{m.substring(0, 3)}</span>
           ))}
