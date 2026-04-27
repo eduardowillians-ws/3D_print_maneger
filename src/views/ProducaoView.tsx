@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Plus, 
   Play, 
@@ -14,10 +14,15 @@ import {
   ChevronRight,
   History as HistoryIcon,
   Layers,
-  User
+  User,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
+import { productionApi } from '../services/api/production';
+import { clientsApi } from '../services/api/clients';
+import { printersApi } from '../services/api/printers';
+import { ProductionStatus } from '../types/database';
 
 type JobStatus = 'PENDENTE' | 'IMPRIMINDO' | 'CONCLUIDO' | 'ARQUIVADO';
 
@@ -43,55 +48,144 @@ export default function ProducaoView() {
   const [printer, setPrinter] = useState('');
   const [customer, setCustomer] = useState('');
   
-  const [jobs, setJobs] = useState<ProductionJob[]>([
-    { id: 'JOB-401', name: 'Suporte de Parede Gopro', printer: 'Prusa XL #01', material: 'PLA Black', timeRemaining: '4h 12m', progress: 45, status: 'IMPRIMINDO', customer: 'João Silva' },
-    { id: 'JOB-402', name: 'Engrenagem Bi-Helicoidal', printer: 'Prusa XL #02', material: 'PETG Grey', timeRemaining: '8h 00m', progress: 0, status: 'PENDENTE', customer: 'Tech Robotics' },
-    { id: 'JOB-403', name: 'Miniatura Dragão Articulado', printer: 'Prusa MK4 #01', material: 'Silk Rainbow', timeRemaining: '0h 00m', progress: 100, status: 'CONCLUIDO', customer: 'Loja Geek 3D' },
-  ]);
+  const [jobs, setJobs] = useState<ProductionJob[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [clientsList, setClientsList] = useState<any[]>([]);
+  const [printersList, setPrintersList] = useState<any[]>([]);
+  const [selectedPrinterId, setSelectedPrinterId] = useState<string>('');
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
 
-  const handleCreateJob = () => {
+  useEffect(() => {
+    loadJobs();
+    loadClients();
+    loadPrinters();
+  }, []);
+
+  const loadClients = async () => {
+    const { data } = await clientsApi.getAll();
+    if (data) {
+      setClientsList(data.map(c => ({ id: c.id, name: c.name })));
+    }
+  };
+
+  const loadPrinters = async () => {
+    const { data } = await printersApi.getAll();
+    if (data) {
+      setPrintersList(data.map(p => ({ id: p.id, name: p.name })));
+    }
+  };
+
+  const loadJobs = async () => {
+    setIsLoading(true);
+    const { data, error } = await productionApi.getAll();
+    if (error) {
+      console.error('Erro ao carregar trabalhos:', error.message);
+      setIsLoading(false);
+      return;
+    }
+    
+    if (data) {
+      const mappedData: ProductionJob[] = data.map(j => ({
+        id: j.id,
+        name: j.product_name,
+        printer: j.printer_id || 'Não atribuída',
+        material: 'PLA Standard',
+        timeRemaining: j.status === 'IMPRIMINDO' ? `${Math.round((100 - j.progress) * 0.1)}h ${((100 - j.progress) * 6) % 60}m` : 'Pendente',
+        progress: j.progress,
+        status: j.status === 'FILA' ? 'PENDENTE' : j.status === 'CONCLUIDO' ? 'CONCLUIDO' : j.status === 'ARQUIVADO' ? 'ARQUIVADO' : 'IMPRIMINDO',
+        customer: 'Cliente Avulso'
+      }));
+      setJobs(mappedData);
+    }
+    setIsLoading(false);
+  };
+
+  const handleCreateJob = async () => {
     if (!name.trim()) {
       alert('Por favor, informe o nome da peça.');
       return;
     }
-    
+
+    const statusMap: Record<string, ProductionStatus> = {
+      'PENDENTE': 'FILA',
+      'IMPRIMINDO': 'IMPRIMINDO',
+      'CONCLUIDO': 'CONCLUIDO',
+      'ARQUIVADO': 'ARQUIVADO'
+    };
+
+    const jobData = {
+      product_name: name,
+      status: 'FILA' as ProductionStatus,
+      progress: 0,
+      printer_id: selectedPrinterId || null
+    };
+
     if (editingJob) {
-      setJobs(prev => prev.map(job => job.id === editingJob.id ? { 
-        ...job, name, printer, customer 
-      } : job));
+      const { error } = await productionApi.update(editingJob.id, { product_name: name, printer_id: selectedPrinterId || null });
+      if (error) {
+        alert('Erro ao atualizar trabalho: ' + error.message);
+        return;
+      }
+      await loadJobs();
       alert('Trabalho atualizado!');
-    } else {
-      const newJob: ProductionJob = {
-        id: `JOB-${Math.floor(Math.random() * 900) + 100}`,
-        name,
-        printer: printer || 'Prusa XL #01',
-        material: 'PLA Standard',
-        timeRemaining: 'Pendente',
-        progress: 0,
-        status: 'PENDENTE',
-        customer: customer || 'Cliente Avulso'
-      };
-      setJobs(prev => [newJob, ...prev]);
-      alert('Trabalho adicionado à fila!');
+} else {
+      const { data, error } = await productionApi.create(jobData);
+      if (error) {
+        alert('Erro ao criar trabalho: ' + error.message);
+        return;
+      }
+      if (data) {
+        const newJob: ProductionJob = {
+          id: data.id,
+          name: data.product_name,
+          printer: selectedPrinterId ? printersList.find(p => p.id === selectedPrinterId)?.name || 'Não atribuída' : 'Não atribuída',
+          material: 'PLA Standard',
+          timeRemaining: 'Pendente',
+          progress: 0,
+          status: 'PENDENTE',
+          customer: selectedClientId ? clientsList.find(c => c.id === selectedClientId)?.name || 'Cliente Avulso' : 'Cliente Avulso'
+        };
+        setJobs(prev => [newJob, ...prev]);
+      }
+alert('Trabalho adicionado à fila!');
     }
     
     setShowAddModal(false);
     resetForm();
   };
 
-  const moveJob = (id: string, newStatus: JobStatus) => {
+  const moveJob = async (id: string, newStatus: JobStatus) => {
+    const statusMap: Record<string, ProductionStatus> = {
+      'PENDENTE': 'FILA',
+      'IMPRIMINDO': 'IMPRIMINDO',
+      'CONCLUIDO': 'CONCLUIDO',
+      'ARQUIVADO': 'ARQUIVADO'
+    };
+
+    const progress = newStatus === 'CONCLUIDO' ? 100 : (newStatus === 'IMPRIMINDO' ? 5 : 0);
+    const { error } = await productionApi.updateStatus(id, statusMap[newStatus], progress);
+    if (error) {
+      alert('Erro ao mover trabalho: ' + error.message);
+      return;
+    }
+
     setJobs(prev => prev.map(job => 
       job.id === id ? { 
         ...job, 
         status: newStatus, 
-        progress: newStatus === 'CONCLUIDO' ? 100 : (newStatus === 'IMPRIMINDO' ? 5 : job.progress),
+        progress: progress,
         timeRemaining: newStatus === 'CONCLUIDO' ? '0h 00m' : job.timeRemaining
       } : job
     ));
   };
 
-  const deleteJob = (id: string) => {
+  const deleteJob = async (id: string) => {
     if (confirm('Deseja excluir este trabalho de produção?')) {
+      const { error } = await productionApi.delete(id);
+      if (error) {
+        alert('Erro ao excluir trabalho: ' + error.message);
+        return;
+      }
       setJobs(prev => prev.filter(job => job.id !== id));
     }
   };
@@ -109,6 +203,8 @@ export default function ProducaoView() {
     setPrinter('');
     setCustomer('');
     setEditingJob(null);
+    setSelectedPrinterId('');
+    setSelectedClientId('');
   };
 
   const renderColumn = (status: JobStatus, title: string, icon: any) => {
@@ -172,9 +268,22 @@ export default function ProducaoView() {
 
       {!showArchive ? (
         <div style={{ display: 'flex', gap: '32px', overflowX: 'auto', paddingBottom: '32px', minHeight: 'calc(100vh - 250px)' }}>
-          {renderColumn('PENDENTE', 'Na Fila', <Clock size={18} />)}
-          {renderColumn('IMPRIMINDO', 'Em Produção', <Play size={18} color="var(--primary)" />)}
-          {renderColumn('CONCLUIDO', 'Finalizado', <CheckCircle size={18} color="var(--secondary)" />)}
+          {isLoading ? (
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '60px', color: 'var(--text-muted)' }}
+            >
+              <Loader2 size={32} className="animate-spin" style={{ animation: 'spin 1s linear infinite', marginRight: '12px' }} />
+              Carregando trabalhos...
+            </motion.div>
+          ) : (
+            <>
+              {renderColumn('PENDENTE', 'Na Fila', <Clock size={18} />)}
+              {renderColumn('IMPRIMINDO', 'Em Produção', <Play size={18} color="var(--primary)" />)}
+              {renderColumn('CONCLUIDO', 'Finalizado', <CheckCircle size={18} color="var(--secondary)" />)}
+            </>
+          )}
         </div>
       ) : (
         <div className="glass-panel" style={{ padding: '32px', borderRadius: '24px' }}>
@@ -221,7 +330,20 @@ export default function ProducaoView() {
                   <label>Cliente Associado</label>
                   <div style={{ position: 'relative' }}>
                     <User size={16} style={iconOverlayStyle} />
-                    <input type="text" placeholder="Nome do cliente..." value={customer} onChange={e => setCustomer(e.target.value)} style={iconInputStyle} />
+                    <select 
+                      value={selectedClientId} 
+                      onChange={e => {
+                        setSelectedClientId(e.target.value);
+                        const client = clientsList.find(c => c.id === e.target.value);
+                        setCustomer(client?.name || '');
+                      }}
+                      style={{ ...iconInputStyle, cursor: 'pointer' }}
+                    >
+                      <option value="">Selecione um cliente...</option>
+                      {clientsList.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
@@ -229,13 +351,20 @@ export default function ProducaoView() {
                   <label>Impressora</label>
                   <div style={{ position: 'relative' }}>
                     <PrinterIcon size={16} style={iconOverlayStyle} />
-                    <select value={printer} onChange={e => setPrinter(e.target.value)} style={{ ...iconInputStyle, appearance: 'none' }}>
-                      <option value="">Selecione uma impressora livre...</option>
-                      <option value="Prusa XL #01">Prusa XL #01 (Livre)</option>
-                      <option value="Prusa XL #02">Prusa XL #02 (Livre)</option>
-                      <option value="Bambu X1">Bambu Lab X1 Carbon</option>
+                    <select 
+                      value={selectedPrinterId} 
+                      onChange={e => {
+                        setSelectedPrinterId(e.target.value);
+                        const printer = printersList.find(p => p.id === e.target.value);
+                        setPrinter(printer?.name || '');
+                      }}
+                      style={{ ...iconInputStyle, cursor: 'pointer' }}
+                    >
+                      <option value="">Selecione uma impressora...</option>
+                      {printersList.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
                     </select>
-                    <ChevronRight size={14} style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%) rotate(90deg)', pointerEvents: 'none', color: 'var(--text-dim)' }} />
                   </div>
                 </div>
 
