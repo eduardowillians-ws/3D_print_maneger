@@ -59,16 +59,29 @@ export interface Quote {
   created_at: string;
 }
 
-export type ProductionStatus = 'FILA' | 'IMPRIMINDO' | 'CONCLUIDO' | 'ARQUIVADO';
+export type ProductionStatus = 'FILA' | 'IMPRIMINDO' | 'CONCLUIDO' | 'ARQUIVADO' | 'FALHA';
 
 export interface ProductionJob {
   id: string;
   printer_id: string | null;
+  product_id: string | null;
   product_name: string;
+  quantity: number;
   status: ProductionStatus;
   progress: number;
   start_time: string | null;
   end_time: string | null;
+  created_at: string;
+}
+
+export interface ProductionJobMaterial {
+  id: string;
+  job_id: string;
+  material_id: string;
+  material_name: string;
+  color: string | null;
+  weight_g: number;
+  slot_position: number;
   created_at: string;
 }
 

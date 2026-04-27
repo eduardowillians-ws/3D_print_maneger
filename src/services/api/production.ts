@@ -1,5 +1,6 @@
 import { baseQueries } from './baseQueries';
-import { ProductionJob, ProductionStatus, ApiResponse, ApiResponseSingle } from '../../types/database';
+import { ProductionJob, ProductionJobMaterial, ProductionStatus, ApiResponse, ApiResponseSingle } from '../../types/database';
+import { supabase } from '../../lib/supabase';
 
 export const productionApi = {
   async getAll(): Promise<ApiResponse<ProductionJob>> {
@@ -14,11 +15,35 @@ export const productionApi = {
     return baseQueries.create<ProductionJob>('production_jobs', job);
   },
 
+  async createWithMaterials(job: Partial<ProductionJob>, materials: Partial<ProductionJobMaterial>[]): Promise<ApiResponseSingle<ProductionJob>> {
+    const { data: jobData, error: jobError } = await baseQueries.create<ProductionJob>('production_jobs', job);
+    if (jobError || !jobData) {
+      return { data: null, error: jobError };
+    }
+    
+    if (materials.length > 0) {
+      const materialsWithJobId = materials.map(m => ({
+        ...m,
+        job_id: jobData.id
+      }));
+      const { error: materialsError } = await supabase
+        .from('production_job_materials')
+        .insert(materialsWithJobId);
+      
+      if (materialsError) {
+        console.error('Error creating job materials:', materialsError);
+      }
+    }
+    
+    return { data: jobData, error: null };
+  },
+
   async update(id: string, job: Partial<ProductionJob>): Promise<ApiResponseSingle<ProductionJob>> {
     return baseQueries.update<ProductionJob>('production_jobs', id, job);
   },
 
   async delete(id: string) {
+    await supabase.from('production_job_materials').delete().eq('job_id', id);
     return baseQueries.delete('production_jobs', id);
   },
 
@@ -66,6 +91,38 @@ export const productionApi = {
       completed: data.filter(j => j.status === 'CONCLUIDO').length,
       archived: data.filter(j => j.status === 'ARQUIVADO').length
     };
+  },
+
+  async getMaterialsByJob(jobId: string): Promise<ApiResponse<ProductionJobMaterial>> {
+    const { data, error } = await supabase
+      .from('production_job_materials')
+      .select('*')
+      .eq('job_id', jobId)
+      .order('slot_position', { ascending: true });
+    return { data, error };
+  },
+
+  async addMaterial(material: Partial<ProductionJobMaterial>): Promise<ApiResponseSingle<ProductionJobMaterial>> {
+    const { data, error } = await supabase
+      .from('production_job_materials')
+      .insert(material)
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  async updateMaterial(id: string, material: Partial<ProductionJobMaterial>): Promise<ApiResponseSingle<ProductionJobMaterial>> {
+    const { data, error } = await supabase
+      .from('production_job_materials')
+      .update(material)
+      .eq('id', id)
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  async deleteMaterial(id: string) {
+    return supabase.from('production_job_materials').delete().eq('id', id);
   }
 };
 

@@ -15,7 +15,8 @@ import {
   History as HistoryIcon,
   Layers,
   User,
-  Loader2
+  Loader2,
+  Package
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
@@ -23,6 +24,7 @@ import { productionApi } from '../services/api/production';
 import { clientsApi } from '../services/api/clients';
 import { printersApi } from '../services/api/printers';
 import { productsApi } from '../services/api/products';
+import { materialsApi } from '../services/api/materials';
 import { ProductionStatus } from '../types/database';
 
 type JobStatus = 'PENDENTE' | 'IMPRIMINDO' | 'CONCLUIDO' | 'ARQUIVADO';
@@ -48,21 +50,32 @@ export default function ProducaoView() {
   const [name, setName] = useState('');
   const [printer, setPrinter] = useState('');
   const [customer, setCustomer] = useState('');
+  const [quantity, setQuantity] = useState(1);
   
   const [jobs, setJobs] = useState<ProductionJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [clientsList, setClientsList] = useState<any[]>([]);
   const [printersList, setPrintersList] = useState<any[]>([]);
   const [productsList, setProductsList] = useState<any[]>([]);
+  const [materialsList, setMaterialsList] = useState<any[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = useState<string>('');
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [selectedProductId, setSelectedProductId] = useState<string>('');
+
+  // Estado para materiais do job (até 4 slots)
+  const [jobMaterials, setJobMaterials] = useState<{ materialId: string; weight: number }[]>([
+    { materialId: '', weight: 0 },
+    { materialId: '', weight: 0 },
+    { materialId: '', weight: 0 },
+    { materialId: '', weight: 0 }
+  ]);
 
   useEffect(() => {
     loadJobs();
     loadClients();
     loadPrinters();
     loadProducts();
+    loadMaterials();
   }, []);
 
   const loadClients = async () => {
@@ -85,7 +98,21 @@ export default function ProducaoView() {
       setProductsList(data.map(p => ({ 
         id: p.id, 
         name: p.name, 
-        printTime: p.print_time_hours + (p.print_time_minutes / 60) 
+        printTime: p.print_time_hours + (p.print_time_minutes / 60),
+        materialWeight: p.material_weight_g || 0
+      })));
+    }
+  };
+
+  const loadMaterials = async () => {
+    const { data } = await materialsApi.getAll();
+    if (data) {
+      setMaterialsList(data.map(m => ({ 
+        id: m.id, 
+        name: m.name, 
+        type: m.type,
+        color: m.color || '',
+        weight_g: m.weight_g
       })));
     }
   };
@@ -142,26 +169,39 @@ export default function ProducaoView() {
       return;
     }
 
-    const statusMap: Record<string, ProductionStatus> = {
-      'PENDENTE': 'FILA',
-      'IMPRIMINDO': 'IMPRIMINDO',
-      'CONCLUIDO': 'CONCLUIDO',
-      'ARQUIVADO': 'ARQUIVADO'
-    };
-
     const selectedProduct = productsList.find(p => p.id === selectedProductId);
-    const estimatedTime = selectedProduct ? selectedProduct.printTime : 8;
     
     const jobData = {
       product_name: name,
+      product_id: selectedProductId || null,
+      quantity: quantity,
       status: 'FILA' as ProductionStatus,
       progress: 0,
       printer_id: selectedPrinterId || null,
       start_time: null
     };
 
+    // Preparar materiais do job (apenas os que têm material selecionado)
+    const materialsToAdd = jobMaterials
+      .filter(m => m.materialId)
+      .map((m, idx) => {
+        const material = materialsList.find(mat => mat.id === m.materialId);
+        return {
+          material_id: m.materialId,
+          material_name: material?.name || '',
+          color: material?.color || null,
+          weight_g: m.weight,
+          slot_position: idx + 1
+        };
+      });
+
     if (editingJob) {
-      const { error } = await productionApi.update(editingJob.id, { product_name: name, printer_id: selectedPrinterId || null });
+      const { error } = await productionApi.update(editingJob.id, { 
+        product_name: name, 
+        product_id: selectedProductId || null,
+        quantity: quantity,
+        printer_id: selectedPrinterId || null 
+      });
       if (error) {
         alert('Erro ao atualizar trabalho: ' + error.message);
         return;
@@ -169,17 +209,18 @@ export default function ProducaoView() {
       await loadJobs();
       alert('Trabalho atualizado!');
 } else {
-      const { data, error } = await productionApi.create(jobData);
+      const { data, error } = await productionApi.createWithMaterials(jobData, materialsToAdd);
       if (error) {
         alert('Erro ao criar trabalho: ' + error.message);
         return;
       }
       if (data) {
+        const materialNames = materialsToAdd.map(m => m.material_name).join(', ') || 'Sem material';
         const newJob: ProductionJob = {
           id: data.id,
           name: data.product_name,
           printer: selectedPrinterId ? printersList.find(p => p.id === selectedPrinterId)?.name || 'Não atribuída' : 'Não atribuída',
-          material: 'PLA Standard',
+          material: materialNames,
           timeRemaining: 'Pendente',
           progress: 0,
           status: 'PENDENTE',
@@ -242,10 +283,17 @@ alert('Trabalho adicionado à fila!');
     setName('');
     setPrinter('');
     setCustomer('');
+    setQuantity(1);
     setEditingJob(null);
     setSelectedPrinterId('');
     setSelectedClientId('');
     setSelectedProductId('');
+    setJobMaterials([
+      { materialId: '', weight: 0 },
+      { materialId: '', weight: 0 },
+      { materialId: '', weight: 0 },
+      { materialId: '', weight: 0 }
+    ]);
   };
 
   const renderColumn = (status: JobStatus, title: string, icon: any) => {
@@ -436,6 +484,56 @@ alert('Trabalho adicionado à fila!');
                       ))}
                     </select>
                   </div>
+                </div>
+
+                <div className="input-group">
+                  <label>Quantidade (unidades)</label>
+                  <div style={{ position: 'relative' }}>
+                    <Box size={16} style={iconOverlayStyle} />
+                    <input 
+                      type="number" 
+                      min="1" 
+                      value={quantity} 
+                      onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                      style={{ ...iconInputStyle, paddingLeft: '36px' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '8px' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: '12px', display: 'block' }}>
+                    Materiais (até 4 slots - AMS)
+                  </label>
+                  {jobMaterials.map((slot, idx) => (
+                    <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                      <select 
+                        value={slot.materialId}
+                        onChange={e => {
+                          const newMaterials = [...jobMaterials];
+                          newMaterials[idx].materialId = e.target.value;
+                          setJobMaterials(newMaterials);
+                        }}
+                        style={{ flex: 2, padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', color: 'white', fontSize: '13px' }}
+                      >
+                        <option value="">Slot {idx + 1} - Vazio</option>
+                        {materialsList.map(m => (
+                          <option key={m.id} value={m.id}>{m.name} {m.color ? `(${m.color})` : ''}</option>
+                        ))}
+                      </select>
+                      <input 
+                        type="number" 
+                        placeholder="g"
+                        value={slot.weight || ''}
+                        onChange={e => {
+                          const newMaterials = [...jobMaterials];
+                          newMaterials[idx].weight = parseInt(e.target.value) || 0;
+                          setJobMaterials(newMaterials);
+                        }}
+                        style={{ flex: 1, padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', color: 'white', fontSize: '13px', textAlign: 'right' }}
+                      />
+                      <span style={{ fontSize: '11px', color: 'var(--text-dim)', width: '20px' }}>g</span>
+                    </div>
+                  ))}
                 </div>
 
                 <button className="btn-primary" style={{ width: '100%', height: '54px', fontSize: '16px' }} onClick={handleCreateJob}>

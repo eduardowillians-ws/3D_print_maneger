@@ -1,5 +1,5 @@
 -- 🏛️ PRINT PULSE 3D - SUPABASE DATABASE SCHEMA
--- Last Updated: 2026-04-25
+-- Last Updated: 2026-04-27
 -- Description: This file contains the complete structure of the SaaS platform.
 
 -- 1. EXTENSIONS
@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS public.clients (
     email TEXT,
     phone TEXT,
     address TEXT,
+    type TEXT DEFAULT 'B2B', -- B2B, Prototipagem, Hobbyista, Educação, Outro
     tags TEXT[], -- ex: {'VIP', 'Recorrente'}
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -71,11 +72,25 @@ CREATE TABLE IF NOT EXISTS public.quotes (
 CREATE TABLE IF NOT EXISTS public.production_jobs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     printer_id UUID REFERENCES public.printers(id) ON DELETE SET NULL,
+    product_id UUID REFERENCES public.products(id) ON DELETE SET NULL,
     product_name TEXT NOT NULL,
-    status TEXT DEFAULT 'FILA', -- FILA, IMPRIMINDO, CONCLUIDO, ARQUIVADO
+    quantity INTEGER DEFAULT 1,
+    status TEXT DEFAULT 'FILA', -- FILA, IMPRIMINDO, CONCLUIDO, ARQUIVADO, FALHA
     progress INTEGER DEFAULT 0,
     start_time TIMESTAMP WITH TIME ZONE,
     end_time TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Materiais por Trabalho de Produção (até 4 por job - AMS slots)
+CREATE TABLE IF NOT EXISTS public.production_job_materials (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    job_id UUID NOT NULL REFERENCES public.production_jobs(id) ON DELETE CASCADE,
+    material_id UUID NOT NULL REFERENCES public.materials(id) ON DELETE CASCADE,
+    material_name TEXT NOT NULL,
+    color TEXT,
+    weight_g INTEGER DEFAULT 0,
+    slot_position INTEGER DEFAULT 1, -- 1, 2, 3 ou 4 (posição no AMS)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -101,6 +116,7 @@ ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quotes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.production_jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.production_job_materials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow all for all" ON public.printers FOR ALL USING (true) WITH CHECK (true);
@@ -109,4 +125,5 @@ CREATE POLICY "Allow all for all" ON public.products FOR ALL USING (true) WITH C
 CREATE POLICY "Allow all for all" ON public.clients FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for all" ON public.quotes FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for all" ON public.production_jobs FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for all" ON public.production_job_materials FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for all" ON public.transactions FOR ALL USING (true) WITH CHECK (true);

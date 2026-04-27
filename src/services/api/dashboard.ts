@@ -63,12 +63,15 @@ export const dashboardApi = {
     const daysInMonth = new Date(parseInt(year), monthIndex + 1, 0).getDate();
     const dailyProduction = Array.from({ length: daysInMonth }, (_, i) => {
       const day = i + 1;
-      const dayJobs = productionJobs.filter((j: any) => {
-        if (!j.created_at) return false;
+      const dayUnits = productionJobs.reduce((acc: number, j: any) => {
+        if (!j.created_at) return acc;
         const jobDate = new Date(j.created_at);
-        return jobDate.getDate() === day && jobDate.getMonth() === monthIndex && jobDate.getFullYear() === parseInt(year);
-      }).length;
-      return { label: day.toString(), val: dayJobs };
+        if (jobDate.getDate() === day && jobDate.getMonth() === monthIndex && jobDate.getFullYear() === parseInt(year)) {
+          return acc + (j.quantity || 1);
+        }
+        return acc;
+      }, 0);
+      return { label: day.toString(), val: dayUnits };
     });
 
     const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
