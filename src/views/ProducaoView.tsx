@@ -64,12 +64,12 @@ export default function ProducaoView() {
   const [selectedProductId, setSelectedProductId] = useState<string>('');
   const [isNewProduct, setIsNewProduct] = useState(false);
 
-  // Estado para materiais do job (até 4 slots)
-  const [jobMaterials, setJobMaterials] = useState<{ materialId: string; weight: number }[]>([
-    { materialId: '', weight: 0 },
-    { materialId: '', weight: 0 },
-    { materialId: '', weight: 0 },
-    { materialId: '', weight: 0 }
+  // Estado para materiais do job (até 4 slots) - com peso por unidade
+  const [jobMaterials, setJobMaterials] = useState<{ materialId: string; weight: number; weightPerUnit: number }[]>([
+    { materialId: '', weight: 0, weightPerUnit: 0 },
+    { materialId: '', weight: 0, weightPerUnit: 0 },
+    { materialId: '', weight: 0, weightPerUnit: 0 },
+    { materialId: '', weight: 0, weightPerUnit: 0 }
   ]);
 
   useEffect(() => {
@@ -86,7 +86,7 @@ export default function ProducaoView() {
       const qty = parseInt(quantity) || 1;
       setJobMaterials(prev => prev.map(m => ({
         ...m,
-        weight: m.materialId ? m.weight : 0
+        weight: m.materialId ? (m.weightPerUnit || 0) * qty : 0
       })));
     }
   }, [quantity]);
@@ -349,10 +349,10 @@ alert('Trabalho adicionado à fila!');
     setSelectedProductId('');
     setIsNewProduct(false);
     setJobMaterials([
-      { materialId: '', weight: 0 },
-      { materialId: '', weight: 0 },
-      { materialId: '', weight: 0 },
-      { materialId: '', weight: 0 }
+      { materialId: '', weight: 0, weightPerUnit: 0 },
+      { materialId: '', weight: 0, weightPerUnit: 0 },
+      { materialId: '', weight: 0, weightPerUnit: 0 },
+      { materialId: '', weight: 0, weightPerUnit: 0 }
     ]);
   };
 
@@ -479,10 +479,10 @@ alert('Trabalho adicionado à fila!');
                           setSelectedProductId('');
                           setIsNewProduct(true);
                           setJobMaterials([
-                            { materialId: '', weight: 0 },
-                            { materialId: '', weight: 0 },
-                            { materialId: '', weight: 0 },
-                            { materialId: '', weight: 0 }
+                            { materialId: '', weight: 0, weightPerUnit: 0 },
+                            { materialId: '', weight: 0, weightPerUnit: 0 },
+                            { materialId: '', weight: 0, weightPerUnit: 0 },
+                            { materialId: '', weight: 0, weightPerUnit: 0 }
                           ]);
                         } else {
                           setIsNewProduct(false);
@@ -498,11 +498,12 @@ alert('Trabalho adicionado à fila!');
                           if (prodMaterials && prodMaterials.length > 0) {
                             const newSlots = prodMaterials.map((pm: any) => ({
                               materialId: pm.material_id,
-                              weight: (pm.weight_g || 0) * qty
+                              weight: (pm.weight_g || 0) * qty,
+                              weightPerUnit: pm.weight_g || 0
                             }));
                             // Preencher slots restantes com vazio
                             while (newSlots.length < 4) {
-                              newSlots.push({ materialId: '', weight: 0 });
+                              newSlots.push({ materialId: '', weight: 0, weightPerUnit: 0 });
                             }
                             setJobMaterials(newSlots);
                           } else if (product?.materialWeight && product.materialWeight > 0) {
@@ -632,7 +633,9 @@ alert('Trabalho adicionado à fila!');
                         value={slot.weight || ''}
                         onChange={e => {
                           const newMaterials = [...jobMaterials];
-                          newMaterials[idx].weight = parseInt(e.target.value) || 0;
+                          const newWeight = parseInt(e.target.value) || 0;
+                          newMaterials[idx].weight = newWeight;
+                          newMaterials[idx].weightPerUnit = newWeight;
                           setJobMaterials(newMaterials);
                         }}
                         style={{ flex: 1, padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', color: 'white', fontSize: '13px', textAlign: 'right' }}
