@@ -1,63 +1,72 @@
 import { useState, useEffect } from 'react';
-import { Wallet, TrendingUp, Printer, FileText, ChevronDown, Filter, AlertTriangle, Settings, Clock, Layers, RefreshCw, MoreVertical } from 'lucide-react';
+import { Wallet, TrendingUp, Printer, FileText, ChevronDown, Filter, AlertTriangle, Settings, Clock, Layers, RefreshCw, MoreVertical, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
+import dashboardApi from '../services/api/dashboard';
 
 export default function PainelView() {
   const { currencySymbol } = useSettings();
-  const [selectedMonth, setSelectedMonth] = useState('Abril');
-  const [selectedYear, setSelectedYear] = useState('2024');
+  const currentYear = new Date().getFullYear();
+  const currentMonthName = new Date().toLocaleString('pt-BR', { month: 'long' });
+  
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1));
+  const [selectedYear, setSelectedYear] = useState(currentYear.toString());
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState<any>(null);
 
   const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-  const years = ['2023', '2024', '2025'];
+  const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString());
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [selectedMonth, selectedYear]);
+
+  const loadDashboardData = async () => {
+    setIsLoading(true);
+    const data = await dashboardApi.getStats(selectedMonth, selectedYear);
+    setStats(data);
+    setIsLoading(false);
+  };
 
   const getDaysInMonth = (monthName: string, year: string) => {
     const monthIndex = months.indexOf(monthName);
     return new Date(parseInt(year), monthIndex + 1, 0).getDate();
   };
 
-  // Dados mockados que mudam com os filtros
-  const getDynamicData = (month: string, year: string) => {
-    const seed = (month.length * 100) + (parseInt(year) % 10);
-    const daysInMonth = getDaysInMonth(month, year);
-    
-    // Gerar produção diária baseada no seed e no mês
-    const dailyProduction = Array.from({ length: daysInMonth }, (_, i) => {
-      const daySeed = (seed + i) * 1.5;
-      const val = Math.floor(10 + (Math.sin(daySeed) * 5) + (seed % 15));
-      return { label: (i + 1).toString(), val: val < 5 ? 5 : val };
-    });
-
-    return {
-      receita: (12450 + seed).toLocaleString('pt-BR'),
-      lucro: (3200 + (seed / 2)).toLocaleString('pt-BR'),
-      impressoes: 5 + (seed % 5),
-      orcamentos: 10 + (seed % 8),
-      productionData: dailyProduction,
-      chartData: [
-        65 + (seed % 10), 45 + (seed % 15), 85 - (seed % 5), 55 + (seed % 20), 
-        95 - (seed % 10), 75 + (seed % 5), 40 + (seed % 15)
-      ],
-      pieData: [
-        { label: 'B2B', val: 40 + (seed % 10), color: 'var(--primary)' },
-        { label: 'Prototipagem', val: 25 + (seed % 5), color: 'var(--accent-cyan)' },
-        { label: 'Hobbyistas', val: 20 - (seed % 5), color: '#F59E0B' },
-        { label: 'Educação', val: 15, color: 'var(--secondary)' }
-      ]
-    };
-  };
-
-  const data = getDynamicData(selectedMonth, selectedYear);
-
   const handleRefresh = () => {
     setIsRefreshing(true);
-    setTimeout(() => {
-        setIsRefreshing(false);
-        // Aqui simularia um fetch de novos dados
-    }, 800);
+    loadDashboardData();
+    setTimeout(() => setIsRefreshing(false), 800);
   };
+
+  const data = stats ? {
+    receita: stats.receita,
+    lucro: stats.lucro,
+    impressoes: stats.impressoesAtivas,
+    orcamentos: stats.orcamentosPendentes,
+    productionData: stats.productionData,
+    chartData: stats.chartData,
+    pieData: stats.pieData,
+    alerts: stats.alerts
+  } : {
+    receita: '0',
+    lucro: '0',
+    impressoes: 0,
+    orcamentos: 0,
+    productionData: [],
+    chartData: [65, 45, 85, 55, 95, 75, 40, 60, 70, 50, 80, 45],
+    pieData: [
+      { label: 'B2B', val: 40, color: 'var(--primary)' },
+      { label: 'Prototipagem', val: 25, color: 'var(--accent-cyan)' },
+      { label: 'Hobbyistas', val: 20, color: '#F59E0B' },
+      { label: 'Educação', val: 15, color: 'var(--secondary)' }
+    ],
+    alerts: []
+  };
+
+  const formatCurrency = (value: number) => value.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ paddingBottom: '40px' }}>
@@ -89,10 +98,16 @@ export default function PainelView() {
       </div>
 
       <div className="kpi-grid" style={kpiGridStyle}>
-        <KPICard title="Receita Total" value={`${currencySymbol} ${data.receita}`} change="+8.2% vs mês passado" icon={<Wallet size={20} color="var(--primary)" />} bgColor="rgba(138, 43, 226, 0.05)" accentColor="var(--primary)" isRefreshing={isRefreshing} />
-        <KPICard title="Lucro Mensal" value={`${currencySymbol} ${data.lucro}`} change="+4.1% vs mês passado" icon={<TrendingUp size={20} color="var(--secondary)" />} bgColor="rgba(74, 225, 118, 0.05)" accentColor="var(--secondary)" isRefreshing={isRefreshing} />
-        <KPICard title="Impressões Ativas" value={data.impressoes.toString()} change="82% de utilização" icon={<Printer size={20} color="var(--accent-cyan)" />} bgColor="rgba(34, 211, 238, 0.05)" accentColor="var(--accent-cyan)" isRefreshing={isRefreshing} />
-        <KPICard title="Orçamentos Pendentes" value={data.orcamentos.toString()} change="Necessita revisão" icon={<FileText size={20} color="#F59E0B" />} bgColor="rgba(245, 158, 11, 0.05)" accentColor="#F59E0B" isRefreshing={isRefreshing} />
+        {isLoading ? (
+          <KPICard title="Carregando..." value="..." change="" icon={<Loader2 size={20} className="animate-spin" />} bgColor="rgba(138, 43, 226, 0.05)" accentColor="var(--primary)" isRefreshing={true} />
+        ) : (
+          <>
+            <KPICard title="Receita Total" value={`${currencySymbol} ${stats ? formatCurrency(stats.receita) : '0'}`} change={`${stats?.changeReceita || '0'}% vs mês anterior`} icon={<Wallet size={20} color="var(--primary)" />} bgColor="rgba(138, 43, 226, 0.05)" accentColor="var(--primary)" isRefreshing={isRefreshing} />
+            <KPICard title="Lucro Mensal" value={`${currencySymbol} ${stats ? formatCurrency(stats.lucro) : '0'}`} change={`${stats?.changeLucro || '0'}% vs mês anterior`} icon={<TrendingUp size={20} color="var(--secondary)" />} bgColor="rgba(74, 225, 118, 0.05)" accentColor="var(--secondary)" isRefreshing={isRefreshing} />
+            <KPICard title="Impressões Ativas" value={stats?.impressoesAtivas?.toString() || '0'} change={`${stats?.utilization || 0}% de utilização`} icon={<Printer size={20} color="var(--accent-cyan)" />} bgColor="rgba(34, 211, 238, 0.05)" accentColor="var(--accent-cyan)" isRefreshing={isRefreshing} />
+            <KPICard title="Orçamentos Pendentes" value={stats?.orcamentosPendentes?.toString() || '0'} change="Necessita revisão" icon={<FileText size={20} color="#F59E0B" />} bgColor="rgba(245, 158, 11, 0.05)" accentColor="#F59E0B" isRefreshing={isRefreshing} />
+          </>
+        )}
       </div>
 
       <div style={mainGridStyle}>
@@ -134,9 +149,9 @@ export default function PainelView() {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
             <div style={{ position: 'relative', width: '140px', height: '140px' }}>
                 <svg viewBox="0 0 42 42" style={{ transform: 'rotate(-90deg)' }}>
-                    {data.pieData.map((slice, idx) => {
-                        const total = data.pieData.reduce((a, b) => a + b.val, 0);
-                        const offset = data.pieData.slice(0, idx).reduce((a, b) => a + (b.val / total) * 100, 0);
+                    {data.pieData.map((slice: any, idx: number) => {
+                        const total = data.pieData.reduce((a: number, b: any) => a + b.val, 0);
+                        const offset = data.pieData.slice(0, idx).reduce((a: number, b: any) => a + (b.val / total) * 100, 0);
                         return (
                             <motion.circle 
                                 key={`${slice.label}-${selectedMonth}`}
@@ -150,12 +165,12 @@ export default function PainelView() {
                     })}
                 </svg>
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-                    <span style={{ fontSize: '18px', fontWeight: 800 }}>{data.pieData.reduce((a,b)=>a+b.val, 0)}</span>
+                    <span style={{ fontSize: '18px', fontWeight: 800 }}>{data.pieData.reduce((a: number, b: any) => a + b.val, 0)}</span>
                     <span style={{ fontSize: '8px', color: 'var(--text-dim)' }}>TOTAL</span>
                 </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', width: '100%' }}>
-              {data.pieData.map(slice => (
+              {data.pieData.map((slice: any) => (
                 <LegendItem key={slice.label} color={slice.color} label={slice.label} />
               ))}
             </div>
@@ -172,7 +187,7 @@ export default function PainelView() {
             </div>
             <div style={{ overflowX: 'auto', paddingBottom: '12px', cursor: 'grab' }} className="custom-scrollbar">
                 <div style={{ display: 'flex', alignItems: 'flex-end', height: '180px', gap: '8px', minWidth: `${data.productionData.length * 36}px`, padding: '0 4px' }}>
-                    {data.productionData.map((day, i) => {
+                    {data.productionData.map((day: any, i: number) => {
                         const maxValue = 40; 
                         const heightPercent = (day.val / maxValue) * 100;
 
@@ -215,10 +230,13 @@ export default function PainelView() {
                 <span style={{ fontSize: '11px', color: 'var(--primary)', cursor: 'pointer', fontWeight: 600 }}>Ver Todos</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-               <AlertItem color="#FF4D4D" title="Estoque Baixo: PETG Fibra Carbono" desc="Abaixo de 5kg. Necessário para Pedido #4392." time="Há 2h" />
-               <AlertItem color="#F59E0B" title="Manutenção Pendente: Prusa XL #02" desc="Troca de nozzle recomendada (600h de uso)." time="Há 5h" />
-               <AlertItem color="#EF4444" title="Falha de Impressão: Voron 2.4" desc="Thermal runaway detectado. Impressão abortada." time="Ontem" />
-               <AlertItem color="var(--text-muted)" title="Atraso na Entrega: Lote II" desc="Cliente notificado sobre atraso de 1 dia." time="Ontem" />
+               {data.alerts && data.alerts.length > 0 ? (
+                 data.alerts.map((alert: any, idx: number) => (
+                   <AlertItem key={idx} color={alert.color} title={alert.title} desc={alert.desc} time={alert.time} />
+                 ))
+               ) : (
+                 <AlertItem color="var(--secondary)" title="Tudo OK" desc="Nenhum alerta crítico no momento." time="Agora" />
+               )}
             </div>
         </div>
       </div>

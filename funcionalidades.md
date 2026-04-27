@@ -15,7 +15,7 @@ Este documento rastreia o progresso do desenvolvimento do sistema **PrintPulse 3
 - [x] Fila de Produção Ativa integrada ao centro de controle.
 - [x] Alertas Críticos (Estoque e Manutenção).
 - [x] Filtros interativos de Mês e Ano.
-- [ ] Integração real com dados do Supabase (Aguardando OK).
+- [x] Integração real com dados do Supabase ✅
 
 ## 🖨️ Módulo: Impressoras
 - [x] Monitoramento de status das máquinas.
@@ -289,17 +289,17 @@ Este plano documenta a transição progressiva dos dados mockados (gerados inlin
 
 ---
 
-### Fase 9: Módulo Painel (Dashboard)
+### Fase 9: Módulo Painel (Dashboard) ✅ COMPLETO
 **Objetivo**: Consolidar dados de todas as APIs para o dashboard.
 
 **Mock atual**: Dados gerados matematicamente em `PainelView.tsx`.
 
 **Etapas:**
-- [ ] **9.1** - Criar `src/services/api/dashboard.ts`.
-- [ ] **9.2** - Implementar queries agregadas (receita, lucro, impressões).
-- [ ] **9.3** - Conectar gráfico de produção diária.
-- [ ] **9.4** - Popular fila de produção ativa.
-- [ ] **9.5** - Adicionar alertas críticos (estoque, manutenção).
+- [x] **9.1** - Criar `src/services/api/dashboard.ts`.
+- [x] **9.2** - Implementar queries agregadas (receita, lucro, impressões).
+- [x] **9.3** - Conectar gráfico de produção diária.
+- [x] **9.4** - Popular fila de produção ativa.
+- [x] **9.5** - Adicionar alertas críticos (estoque, manutenção).
 
 **Riscos**: Alto - depende de todas as fases anteriores.
 **Estratégia de rollback**: Fallback para dados calculados localmente.
