@@ -96,14 +96,48 @@ export default function FinancialView() {
     setIsLoading(false);
   };
 
-  const stats = {
-    receita: transactions.filter(t => t.type === 'INCOME' && t.status === 'CONCLUÍDO').reduce((acc, t) => acc + t.value, 0),
-    custos: transactions.filter(t => t.type === 'EXPENSE' && t.status === 'CONCLUÍDO').reduce((acc, t) => acc + t.value, 0),
-    lucro: 0,
-    ticket: 0
+  const currentMonthIndex = months.indexOf(filterMonth);
+  const previousMonthIndex = currentMonthIndex === 0 ? 11 : currentMonthIndex - 1;
+  const previousMonthYear = currentMonthIndex === 0 ? (parseInt(filterYear) - 1).toString() : filterYear;
+
+  const getMonthStats = (monthIndex: number, year: string) => {
+    return transactions.filter(t => {
+      const dateStr = (t as any).dateRaw || t.date;
+      const dateParts = dateStr.split('-');
+      if (dateParts.length !== 3) return false;
+      const transYear = dateParts[0];
+      const transMonth = parseInt(dateParts[1]) - 1;
+      return transYear === year && transMonth === monthIndex;
+    });
   };
-  stats.lucro = stats.receita - stats.custos;
-  stats.ticket = transactions.length > 0 ? stats.receita / transactions.filter(t => t.type === 'INCOME').length : 0;
+
+  const currentMonthTransactions = getMonthStats(currentMonthIndex, filterYear);
+  const previousMonthTransactions = getMonthStats(previousMonthIndex, previousMonthYear);
+
+  const calculateStats = (txns: Transaction[]) => {
+    const receita = txns.filter(t => t.type === 'INCOME' && t.status === 'CONCLUÍDO').reduce((acc, t) => acc + t.value, 0);
+    const custos = txns.filter(t => t.type === 'EXPENSE' && t.status === 'CONCLUÍDO').reduce((acc, t) => acc + t.value, 0);
+    return { receita, custos, lucro: receita - custos };
+  };
+
+  const currentStats = calculateStats(currentMonthTransactions);
+  const previousStats = calculateStats(previousMonthTransactions);
+
+  const getChange = (current: number, previous: number) => {
+    if (previous === 0) return current > 0 ? '+100%' : '0%';
+    const change = ((current - previous) / previous) * 100;
+    return `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`;
+  };
+
+  const stats = {
+    receita: currentStats.receita,
+    custos: currentStats.custos,
+    lucro: currentStats.lucro,
+    ticket: currentStats.receita > 0 ? currentStats.receita / currentMonthTransactions.filter(t => t.type === 'INCOME').length : 0,
+    changeReceita: getChange(currentStats.receita, previousStats.receita),
+    changeCustos: getChange(currentStats.custos, previousStats.custos),
+    changeLucro: getChange(currentStats.lucro, previousStats.lucro)
+  };
 
   const filteredTransactions = transactions.filter(t => {
     const dateStr = (t as any).dateRaw || t.date;
@@ -273,10 +307,10 @@ export default function FinancialView() {
       </div>
 
       <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '32px' }}>
-         <KPICard title="RECEITA TOTAL" value={`${currencySymbol} ${currentData.receita}`} change="+12.5%" icon={<TrendingUp size={18} />} bgColor="rgba(74, 225, 118, 0.05)" accentColor="var(--secondary)" />
-         <KPICard title="CUSTOS TOTAIS" value={`${currencySymbol} ${currentData.custos}`} change="+8.2%" icon={<TrendingDown size={18} />} bgColor="rgba(255, 77, 77, 0.05)" accentColor="var(--error)" />
-         <KPICard title="LUCRO LÍQUIDO" value={`${currencySymbol} ${currentData.lucro}`} change="+18.4%" icon={<TrendingUp size={18} />} bgColor="rgba(138, 43, 226, 0.05)" accentColor="var(--primary)" />
-         <KPICard title="TICKET MÉDIO" value={`${currencySymbol} ${currentData.ticket}`} change="+5.1%" icon={<TrendingUp size={18} />} bgColor="rgba(22, 189, 202, 0.05)" accentColor="var(--accent-cyan)" />
+<KPICard title="RECEITA TOTAL" value={`${currencySymbol} ${currentData.receita}`} change={`${stats.changeReceita} vs mês anterior`} icon={<TrendingUp size={18} />} bgColor="rgba(74, 225, 118, 0.05)" accentColor="var(--secondary)" />
+          <KPICard title="CUSTOS TOTAIS" value={`${currencySymbol} ${currentData.custos}`} change={`${stats.changeCustos} vs mês anterior`} icon={<TrendingDown size={18} />} bgColor="rgba(255, 77, 77, 0.05)" accentColor="var(--error)" />
+          <KPICard title="LUCRO LÍQUIDO" value={`${currencySymbol} ${currentData.lucro}`} change={`${stats.changeLucro} vs mês anterior`} icon={<TrendingUp size={18} />} bgColor="rgba(138, 43, 226, 0.05)" accentColor="var(--primary)" />
+          <KPICard title="TICKET MÉDIO" value={`${currencySymbol} ${currentData.ticket}`} change="Por transação" icon={<TrendingUp size={18} />} bgColor="rgba(22, 189, 202, 0.05)" accentColor="var(--accent-cyan)" />
       </div>
 
       <div className="glass-panel" style={{ padding: '32px', borderRadius: '24px', marginBottom: '32px', position: 'relative' }}>
