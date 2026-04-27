@@ -265,17 +265,24 @@ Este plano documenta a transição progressiva dos dados mockados (gerados inlin
 
 ---
 
-### Fase 8: Módulo Financeiro
+### Fase 8: Módulo Financeiro ✅ CONCLUÍDO
 **Objetivo**: Integrar fluxo de caixa com dados reais.
 
 **Mock atual**: Transações simuladas em `FinancialView.tsx`.
 
 **Etapas:**
-- [ ] **8.1** - Criar `src/services/api/transactions.ts`.
-- [ ] **8.2** - Modificar `FinancialView.tsx` para consumir API.
-- [ ] **8.3** - Implementar filtros (Mês/Ano/Categoria).
-- [ ] **8.4** - Adicionar operações (Editar, Estornar, Excluir).
-- [ ] **8.5** - Calcular KPIs automaticamente via query agregada.
+- [x] **8.1** - Criar `src/services/api/transactions.ts`.
+- [x] **8.2** - Modificar `FinancialView.tsx` para consumir API.
+- [x] **8.3** - Implementar filtros (Mês/Ano/Categoria).
+- [x] **8.4** - Adicionar operações (Editar, Estornar, Excluir).
+- [x] **8.5** - Calcular KPIs automaticamente via query agregada.
+
+**Implementação:**
+- Dados reais do Supabase (tabela `transactions`)
+- CRUD completo (create, update, delete)
+- KPIs calculados dinamicamente (receita, custos, lucro)
+- Status dinâmico (CONCLUÍDO, PENDENTE, ESTORNADO)
+- Loading state com spinner
 
 **Riscos**: Baixo - tabela independente, sem dependências.
 **Estratégia de rollback**: Histórico de transações em cache local.
