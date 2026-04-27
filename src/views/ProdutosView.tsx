@@ -12,10 +12,12 @@ import {
   X,
   UploadCloud,
   Percent,
-  Trash2
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
+import { productsApi } from '../services/api/products';
 
 export default function ProdutosView() {
   const { currency, measureSystem } = useSettings();
@@ -36,10 +38,36 @@ export default function ProdutosView() {
   const [margin, setMargin] = useState('100');
   const [suggestedPrice, setSuggestedPrice] = useState('0.00');
 
-  const [products, setProducts] = useState([
-    { id: 1, name: 'Chassi de Drone Articulado v2', version: 'v2.1', time: '14h 30m', weight: '450', cost: '12,50', price: '45,00' },
-    { id: 2, name: 'Conjunto de Engrenagens Pesadas', version: 'v1.8', time: '8h 15m', weight: '210', cost: '28,00', price: '85,00' },
-  ]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  const loadProducts = async () => {
+    setIsLoading(true);
+    const { data, error } = await productsApi.getAll();
+    if (error) {
+      console.error('Erro ao carregar produtos:', error.message);
+      setIsLoading(false);
+      return;
+    }
+    
+    if (data) {
+      const mappedData = data.map(p => ({
+        id: p.id,
+        name: p.name,
+        version: p.version,
+        time: `${p.print_time_hours}h ${p.print_time_minutes}m`,
+        weight: p.material_weight_g.toString(),
+        cost: (p.material_weight_g * 0.05).toFixed(2).replace('.', ','),
+        price: Number(p.suggested_price).toFixed(2).replace('.', ',')
+      }));
+      setProducts(mappedData);
+    }
+    setIsLoading(false);
+  };
 
   // Cálculo automático do preço sugerido
   useEffect(() => {
@@ -49,31 +77,68 @@ export default function ProdutosView() {
     setSuggestedPrice(price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
   }, [cost, margin]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) return alert('Por favor, informe o nome do produto.');
 
-    const newProduct = {
-      id: editingProduct ? editingProduct.id : Date.now(),
+    const costValue = parseFloat(cost.replace(',', '.')) || 0;
+    const marginValue = parseFloat(margin) || 100;
+    const priceValue = costValue * (1 + marginValue / 100);
+
+    const productData = {
       name: name.trim(),
       version: editingProduct ? editingProduct.version : 'v1.0',
-      time: `${hours}h ${minutes}m`,
-      weight: weight || '0',
-      cost: cost.toString().replace('.', ','),
-      price: suggestedPrice,
+      print_time_hours: parseInt(hours),
+      print_time_minutes: parseInt(minutes),
+      material_weight_g: parseInt(weight) || 0,
+      margin_percent: marginValue,
+      suggested_price: priceValue
     };
 
     if (editingProduct) {
-      setProducts(prev => prev.map(p => p.id === editingProduct.id ? newProduct : p));
+      const { error } = await productsApi.update(editingProduct.id, productData);
+      if (error) {
+        alert('Erro ao atualizar produto: ' + error.message);
+        return;
+      }
+      setProducts(prev => prev.map(p => p.id === editingProduct.id ? {
+        ...p,
+        name: name.trim(),
+        time: `${hours}h ${minutes}m`,
+        weight: weight,
+        cost: cost.replace('.', ','),
+        price: suggestedPrice
+      } : p));
     } else {
-      setProducts(prev => [newProduct, ...prev]);
+      const { data, error } = await productsApi.create(productData);
+      if (error) {
+        alert('Erro ao criar produto: ' + error.message);
+        return;
+      }
+      if (data) {
+        const newProduct = {
+          id: data.id,
+          name: data.name,
+          version: data.version,
+          time: `${data.print_time_hours}h ${data.print_time_minutes}m`,
+          weight: data.material_weight_g.toString(),
+          cost: (data.material_weight_g * 0.05).toFixed(2).replace('.', ','),
+          price: Number(data.suggested_price).toFixed(2).replace('.', ',')
+        };
+        setProducts(prev => [newProduct, ...prev]);
+      }
     }
 
     resetForm();
     alert(editingProduct ? 'Produto atualizado!' : 'Produto cadastrado!');
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Deseja realmente excluir este produto do catálogo?')) {
+      const { error } = await productsApi.delete(id);
+      if (error) {
+        alert('Erro ao excluir produto: ' + error.message);
+        return;
+      }
       setProducts(prev => prev.filter(p => p.id !== id));
     }
   };
@@ -133,18 +198,40 @@ export default function ProdutosView() {
 
       <div className="grid-responsive" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
         <AnimatePresence mode='popLayout'>
-          {filteredProducts.map(product => (
-            <ProductCard 
-              key={product.id} 
-              product={product} 
-              onEdit={() => startEdit(product)} 
-              onDelete={() => handleDelete(product.id)}
-              currencySymbol={currencySymbol} 
-              weightUnit={weightUnit} 
-            />
-          ))}
+          {isLoading ? (
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'center', padding: '60px', color: 'var(--text-muted)' }}
+            >
+              <Loader2 size={32} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
+              <span style={{ marginLeft: '12px' }}>Carregando produtos...</span>
+            </motion.div>
+          ) : filteredProducts.length === 0 ? (
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}
+            >
+              <Package size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
+              <p>Nenhum produto encontrado</p>
+            </motion.div>
+          ) : (
+            <>
+              {filteredProducts.map(product => (
+                <ProductCard 
+                  key={product.id} 
+                  product={product} 
+                  onEdit={() => startEdit(product)} 
+                  onDelete={() => handleDelete(product.id)}
+                  currencySymbol={currencySymbol} 
+                  weightUnit={weightUnit} 
+                />
+              ))}
+              <QuickAddCard onClick={() => setShowAddModal(true)} />
+            </>
+          )}
         </AnimatePresence>
-        <QuickAddCard onClick={() => setShowAddModal(true)} />
       </div>
 
       <AnimatePresence>

@@ -195,19 +195,26 @@ Este plano documenta a transição progressiva dos dados mockados (gerados inlin
 
 ---
 
-### Fase 5: Módulo Produtos (Catálogo)
+### Fase 5: Módulo Produtos (Catálogo) ✅ CONCLUÍDO
 **Objetivo**: Migrar catálogo de produtos.
 
 **Mock atual**: Grid de produtos em `ProdutosView.tsx`.
 
 **Etapas:**
-- [ ] **5.1** - Criar `src/services/api/products.ts`.
-- [ ] **5.2** - Conectar `ProdutosView.tsx`.
-- [ ] **5.3** - Manter lógica de calculadora de margem (dados locais).
-- [ ] **5.4** - Implementar edição completa via modal.
-- [ ] **5.5** - Adicionar busca rápida por nome/versão.
+- [x] **5.1** - Criar `src/services/api/products.ts`.
+- [x] **5.2** - Conectar `ProdutosView.tsx`.
+- [x] **5.3** - Manter lógica de calculadora de margem (dados locais).
+- [x] **5.4** - Implementar edição completa via modal.
+- [x] **5.5** - Adicionar busca rápida por nome/versão.
 
-**Riscos**: Baixo - tabela independentes, sem FKs críticas.
+**Implementação:**
+- Dados reais do Supabase (tabela `products`)
+- CRUD completo (create, update, delete)
+- Loading state com spinner
+- Calculadora de margem mantida (dados locais)
+- Busca por nome e versão
+
+**Riscos**: Baixo - tabela independentes, sem dependências críticas.
 **Estratégia de rollback**: Manter versão offline do catálogo.
 
 ---
