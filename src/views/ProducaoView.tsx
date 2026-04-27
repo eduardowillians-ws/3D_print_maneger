@@ -61,6 +61,7 @@ export default function ProducaoView() {
   const [selectedPrinterId, setSelectedPrinterId] = useState<string>('');
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [selectedProductId, setSelectedProductId] = useState<string>('');
+  const [isNewProduct, setIsNewProduct] = useState(false);
 
   // Estado para materiais do job (até 4 slots)
   const [jobMaterials, setJobMaterials] = useState<{ materialId: string; weight: number }[]>([
@@ -288,6 +289,7 @@ alert('Trabalho adicionado à fila!');
     setSelectedPrinterId('');
     setSelectedClientId('');
     setSelectedProductId('');
+    setIsNewProduct(false);
     setJobMaterials([
       { materialId: '', weight: 0 },
       { materialId: '', weight: 0 },
@@ -412,15 +414,25 @@ alert('Trabalho adicionado à fila!');
                   <div style={{ position: 'relative' }}>
                     <Layers size={16} style={iconOverlayStyle} />
                     <select 
-                      value={selectedProductId} 
+                      value={isNewProduct ? '__new__' : selectedProductId} 
                       onChange={e => {
                         if (e.target.value === '__new__') {
                           setName('');
                           setSelectedProductId('');
+                          setIsNewProduct(true);
                         } else {
+                          setIsNewProduct(false);
                           setSelectedProductId(e.target.value);
                           const product = productsList.find(p => p.id === e.target.value);
                           setName(product?.name || '');
+                          // Auto-preencher peso do material baseado no produto
+                          if (product?.materialWeight && product.materialWeight > 0) {
+                            setJobMaterials(prev => {
+                              const newMaterials = [...prev];
+                              newMaterials[0] = { ...newMaterials[0], weight: product.materialWeight };
+                              return newMaterials;
+                            });
+                          }
                         }
                       }}
                       style={{ ...iconInputStyle, cursor: 'pointer', paddingLeft: '36px' }}
@@ -428,13 +440,13 @@ alert('Trabalho adicionado à fila!');
                       <option value="">Selecione um produto...</option>
                       <option value="__new__">+ Criar novo produto</option>
                       {productsList.map(p => (
-                        <option key={p.id} value={p.id}>{p.name} ({p.printTime.toFixed(1)}h)</option>
+                        <option key={p.id} value={p.id}>{p.name} ({p.printTime.toFixed(1)}h | {p.materialWeight}g)</option>
                       ))}
                     </select>
                   </div>
                 </div>
                 
-                {!selectedProductId && (
+                {isNewProduct && (
                   <div className="input-group">
                     <label>Nome da Peça (digite)</label>
                     <div style={{ position: 'relative' }}>
@@ -491,14 +503,25 @@ alert('Trabalho adicionado à fila!');
                   <div style={{ position: 'relative' }}>
                     <Box size={16} style={iconOverlayStyle} />
                     <input 
-                      type="number" 
+                      type="number"
+                      inputMode="numeric"
                       min="1" 
                       value={quantity} 
                       onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                      style={{ ...iconInputStyle, paddingLeft: '36px' }}
+                      style={{ ...iconInputStyle, paddingLeft: '36px', MozAppearance: 'textfield' }}
                     />
                   </div>
                 </div>
+                <style>{`
+                  input[type=number]::-webkit-inner-spin-button,
+                  input[type=number]::-webkit-outer-spin-button {
+                    -webkit-appearance: none;
+                    margin: 0;
+                  }
+                  input[type=number] {
+                    -moz-appearance: textfield;
+                  }
+                `}</style>
 
                 <div style={{ marginTop: '8px' }}>
                   <label style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: '12px', display: 'block' }}>
@@ -619,7 +642,15 @@ function JobCard({ job, onMove, onDelete, onEdit }: { job: ProductionJob, onMove
 
 function Modal({ title, children, onClose }: any) {
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={modalOverlayStyle} onClick={onClose}>
+    <motion.div 
+      initial={{ opacity: 0 }} 
+      animate={{ opacity: 1 }} 
+      exit={{ opacity: 0 }} 
+      style={modalOverlayStyle} 
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} style={modalContentStyle} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <h2 style={{ fontSize: '20px', fontWeight: 700 }}>{title}</h2>
