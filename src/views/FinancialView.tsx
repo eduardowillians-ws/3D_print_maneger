@@ -16,7 +16,8 @@ import {
   X,
   ChevronDown,
   RotateCcw,
-  Loader2
+  Loader2,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
@@ -46,6 +47,8 @@ export default function FinancialView() {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportType, setExportType] = useState<'csv' | 'pdf'>('csv');
   
   // Estados para o formulário
   const [description, setDescription] = useState('');
@@ -193,6 +196,33 @@ const currentMonthIndexForHighlight = filterMonth === 'Todos'
     setTimeout(() => setIsFiltering(false), 800);
   };
 
+  const handleExportCSV = () => {
+    const csvContent = [
+      ['ID', 'Data', 'Descrição', 'Categoria', 'Tipo', 'Valor', 'Status'].join(','),
+      ...filteredTransactions.map(t => [
+        t.id,
+        t.date,
+        `"${t.description}"`,
+        t.category,
+        t.type === 'INCOME' ? 'Entrada' : 'Saída',
+        t.value.toString().replace('.', ','),
+        t.status
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `financeiro_${filterMonth}_${filterYear}.csv`;
+    link.click();
+    setShowExportModal(false);
+  };
+
+  const handleExportPDF = () => {
+    setExportType('pdf');
+    setShowExportModal(true);
+  };
+
   const handleDeleteTransaction = async (id: string) => {
     if (confirm('Deseja realmente excluir este registro financeiro? Esta ação é irreversível.')) {
       const { error } = await transactionsApi.delete(id);
@@ -306,7 +336,7 @@ const currentMonthIndexForHighlight = filterMonth === 'Todos'
           <p style={{ color: 'var(--text-dim)', fontSize: '13px' }}>Gestão de fluxo de caixa, DRE e métricas de lucro.</p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <button className="btn-primary" style={{ padding: '12px 24px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', fontSize: '15px' }}>
+          <button className="btn-primary" style={{ padding: '12px 24px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', fontSize: '15px' }} onClick={() => setShowExportModal(true)}>
             <Download size={18} /> Exportar
           </button>
           <button className="btn-primary" style={{ padding: '12px 24px', fontSize: '15px' }} onClick={() => setShowAddModal(true)}>
@@ -525,7 +555,143 @@ const currentMonthIndexForHighlight = filterMonth === 'Todos'
           </Modal>
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {showExportModal && (
+          <div style={modalOverlayStyle} onClick={() => setShowExportModal(false)}>
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="glass-panel" 
+              style={{ width: '100%', maxWidth: '400px', padding: '32px', borderRadius: '24px' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <h2 style={{ fontSize: '20px', fontWeight: 700 }}>Exportar Dados</h2>
+                <button onClick={() => setShowExportModal(false)} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer' }}>
+                  <X size={24} />
+                </button>
+              </div>
+              <p style={{ color: 'var(--text-dim)', marginBottom: '20px', fontSize: '14px' }}>
+                Selecione o formato de exportação. Os dados respeitarão os filtros atuais (mês, ano e categoria).
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <button 
+                  onClick={handleExportCSV}
+                  style={{ padding: '16px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-glass)', borderRadius: '12px', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', fontSize: '15px' }}
+                >
+                  <Download size={20} /> Baixar CSV
+                </button>
+                <button 
+                  onClick={handleExportPDF}
+                  style={{ padding: '16px', background: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: '12px', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', fontSize: '15px', fontWeight: 600 }}
+                >
+                  <FileText size={20} /> Visualizar PDF
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showExportModal && exportType === 'pdf' && (
+          <FinancialPreviewPDF 
+            transactions={filteredTransactions} 
+            stats={stats} 
+            filterMonth={filterMonth} 
+            filterYear={filterYear}
+            currencySymbol={currencySymbol}
+            onClose={() => { setShowExportModal(false); setExportType('csv'); }} 
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
+  );
+}
+
+function FinancialPreviewPDF({ transactions, stats, filterMonth, filterYear, currencySymbol, onClose }: any) {
+  return (
+    <div style={modalOverlayStyle} onClick={onClose}>
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        style={{ width: '100%', maxWidth: '800px', maxHeight: '90vh', overflow: 'auto', background: 'var(--bg-main)', borderRadius: '24px' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ padding: '32px', borderBottom: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 700 }}>Pré-visualização - Relatório Financeiro</h2>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer' }}>
+            <X size={24} />
+          </button>
+        </div>
+        
+        <div style={{ padding: '32px', background: '#fff', color: '#1a1a1a', minHeight: '600px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '32px', borderBottom: '2px solid var(--primary)', paddingBottom: '24px' }}>
+            <h1 style={{ fontSize: '28px', color: 'var(--primary)', fontWeight: 800, marginBottom: '8px' }}>PRINTPULSE 3D</h1>
+            <p style={{ fontSize: '16px', color: '#666' }}>Relatório Financeiro</p>
+            <p style={{ fontSize: '14px', color: '#888', marginTop: '4px' }}>{filterMonth} de {filterYear}</p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
+            <div style={{ padding: '16px', background: '#f8f8f8', borderRadius: '12px', textAlign: 'center' }}>
+              <p style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>RECEITA</p>
+              <p style={{ fontSize: '20px', fontWeight: 700, color: '#22c55e' }}>{currencySymbol} {stats.receita.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+            <div style={{ padding: '16px', background: '#f8f8f8', borderRadius: '12px', textAlign: 'center' }}>
+              <p style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>CUSTOS</p>
+              <p style={{ fontSize: '20px', fontWeight: 700, color: '#ef4444' }}>{currencySymbol} {stats.custos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+            <div style={{ padding: '16px', background: '#f8f8f8', borderRadius: '12px', textAlign: 'center' }}>
+              <p style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>LUCRO</p>
+              <p style={{ fontSize: '20px', fontWeight: 700, color: stats.lucro >= 0 ? '#22c55e' : '#ef4444' }}>{currencySymbol} {stats.lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+            <div style={{ padding: '16px', background: '#f8f8f8', borderRadius: '12px', textAlign: 'center' }}>
+              <p style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>TRANSAÇÕES</p>
+              <p style={{ fontSize: '20px', fontWeight: 700 }}>{transactions.length}</p>
+            </div>
+          </div>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <thead>
+              <tr style={{ background: 'var(--primary)', color: 'white' }}>
+                <th style={{ padding: '12px', textAlign: 'left' }}>Data</th>
+                <th style={{ padding: '12px', textAlign: 'left' }}>Descrição</th>
+                <th style={{ padding: '12px', textAlign: 'left' }}>Categoria</th>
+                <th style={{ padding: '12px', textAlign: 'right' }}>Tipo</th>
+                <th style={{ padding: '12px', textAlign: 'right' }}>Valor</th>
+                <th style={{ padding: '12px', textAlign: 'center' }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transactions.map((t: any, i: number) => (
+                <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
+                  <td style={{ padding: '12px' }}>{t.date}</td>
+                  <td style={{ padding: '12px' }}>{t.description}</td>
+                  <td style={{ padding: '12px' }}>{t.category}</td>
+                  <td style={{ padding: '12px', textAlign: 'right', color: t.type === 'INCOME' ? '#22c55e' : '#ef4444' }}>{t.type === 'INCOME' ? 'Entrada' : 'Saída'}</td>
+                  <td style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>{currencySymbol} {t.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td style={{ padding: '12px', textAlign: 'center' }}>
+                    <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '11px', background: t.status === 'CONCLUÍDO' ? '#dcfce7' : '#fef3c7', color: t.status === 'CONCLUÍDO' ? '#16a34a' : '#d97706' }}>{t.status}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div style={{ padding: '24px', borderTop: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+          <button onClick={onClose} style={{ padding: '12px 24px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', borderRadius: '10px', color: 'white', cursor: 'pointer', fontSize: '14px' }}>
+            Cancelar
+          </button>
+          <button style={{ padding: '12px 24px', background: 'var(--primary)', border: 'none', borderRadius: '10px', color: 'white', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}>
+            Baixar PDF
+          </button>
+        </div>
+      </motion.div>
+    </div>
   );
 }
 
