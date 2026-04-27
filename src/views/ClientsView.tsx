@@ -55,6 +55,14 @@ export default function ClientsView() {
   const [phone, setPhone] = useState('');
   const [status, setStatus] = useState<'ATIVO' | 'INATIVO' | 'SUSPENSO'>('ATIVO');
 
+  const formatPhone = (value: string) => {
+    const numbers = value.replace(/\D/g, '');
+    if (numbers.length <= 10) {
+      return numbers.replace(/(\d{2})(\d{4})/, '($1) $2');
+    }
+    return numbers.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+  };
+
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -292,7 +300,7 @@ const handleDelete = async (id: string) => {
                   <label>Telefone / WhatsApp</label>
                   <div style={{ position: 'relative' }}>
                     <Phone size={16} style={iconOverlayStyle} />
-                    <input type="text" style={iconInputStyle} value={phone} onChange={e => setPhone(e.target.value)} placeholder="(00) 00000-0000" />
+                    <input type="text" style={iconInputStyle} value={phone} onChange={e => setPhone(formatPhone(e.target.value))} placeholder="(00) 00000-0000" />
                   </div>
                 </div>
                 <div className="input-group">
