@@ -22,6 +22,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { productionApi } from '../services/api/production';
 import { clientsApi } from '../services/api/clients';
 import { printersApi } from '../services/api/printers';
+import { productsApi } from '../services/api/products';
 import { ProductionStatus } from '../types/database';
 
 type JobStatus = 'PENDENTE' | 'IMPRIMINDO' | 'CONCLUIDO' | 'ARQUIVADO';
@@ -52,13 +53,16 @@ export default function ProducaoView() {
   const [isLoading, setIsLoading] = useState(true);
   const [clientsList, setClientsList] = useState<any[]>([]);
   const [printersList, setPrintersList] = useState<any[]>([]);
+  const [productsList, setProductsList] = useState<any[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = useState<string>('');
   const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [selectedProductId, setSelectedProductId] = useState<string>('');
 
   useEffect(() => {
     loadJobs();
     loadClients();
     loadPrinters();
+    loadProducts();
   }, []);
 
   const loadClients = async () => {
@@ -75,26 +79,58 @@ export default function ProducaoView() {
     }
   };
 
+  const loadProducts = async () => {
+    const { data } = await productsApi.getAll();
+    if (data) {
+      setProductsList(data.map(p => ({ 
+        id: p.id, 
+        name: p.name, 
+        printTime: p.print_time_hours + (p.print_time_minutes / 60) 
+      })));
+    }
+  };
+
+  const calculateProgress = (startTime: string | null, estimatedHours: number): number => {
+    if (!startTime || estimatedHours <= 0) return 0;
+    const start = new Date(startTime).getTime();
+    const now = new Date().getTime();
+    const elapsedHours = (now - start) / (1000 * 60 * 60);
+    const progress = (elapsedHours / estimatedHours) * 100;
+    return Math.min(Math.round(progress), 100);
+  };
+
   const loadJobs = async () => {
     setIsLoading(true);
-    const { data, error } = await productionApi.getAll();
+    const { data: jobsData, error } = await productionApi.getAll();
+    const { data: productsData } = await productsApi.getAll();
+    
     if (error) {
       console.error('Erro ao carregar trabalhos:', error.message);
       setIsLoading(false);
       return;
     }
     
-    if (data) {
-      const mappedData: ProductionJob[] = data.map(j => ({
-        id: j.id,
-        name: j.product_name,
-        printer: j.printer_id || 'Não atribuída',
-        material: 'PLA Standard',
-        timeRemaining: j.status === 'IMPRIMINDO' ? `${Math.round((100 - j.progress) * 0.1)}h ${((100 - j.progress) * 6) % 60}m` : 'Pendente',
-        progress: j.progress,
-        status: j.status === 'FILA' ? 'PENDENTE' : j.status === 'CONCLUIDO' ? 'CONCLUIDO' : j.status === 'ARQUIVADO' ? 'ARQUIVADO' : 'IMPRIMINDO',
-        customer: 'Cliente Avulso'
-      }));
+    if (jobsData) {
+      const mappedData: ProductionJob[] = jobsData.map(j => {
+        const product = productsData?.find(p => p.name === j.product_name);
+        const estimatedHours = product ? product.print_time_hours + (product.print_time_minutes / 60) : 8;
+        const calculatedProgress = j.status === 'IMPRIMINDO' && j.start_time 
+          ? calculateProgress(j.start_time, estimatedHours)
+          : j.progress;
+        
+        const remainingHours = estimatedHours - (calculatedProgress / 100 * estimatedHours);
+        
+        return {
+          id: j.id,
+          name: j.product_name,
+          printer: j.printer_id ? printersList.find(p => p.id === j.printer_id)?.name || 'Não atribuída' : 'Não atribuída',
+          material: 'PLA Standard',
+          timeRemaining: j.status === 'IMPRIMINDO' ? `${Math.max(0, Math.floor(remainingHours))}h ${Math.round((remainingHours % 1) * 60)}m` : 'Pendente',
+          progress: calculatedProgress,
+          status: j.status === 'FILA' ? 'PENDENTE' : j.status === 'CONCLUIDO' ? 'CONCLUIDO' : j.status === 'ARQUIVADO' ? 'ARQUIVADO' : 'IMPRIMINDO',
+          customer: 'Cliente Avulso'
+        };
+      });
       setJobs(mappedData);
     }
     setIsLoading(false);
@@ -113,11 +149,15 @@ export default function ProducaoView() {
       'ARQUIVADO': 'ARQUIVADO'
     };
 
+    const selectedProduct = productsList.find(p => p.id === selectedProductId);
+    const estimatedTime = selectedProduct ? selectedProduct.printTime : 8;
+    
     const jobData = {
       product_name: name,
       status: 'FILA' as ProductionStatus,
       progress: 0,
-      printer_id: selectedPrinterId || null
+      printer_id: selectedPrinterId || null,
+      start_time: null
     };
 
     if (editingJob) {
@@ -205,6 +245,7 @@ alert('Trabalho adicionado à fila!');
     setEditingJob(null);
     setSelectedPrinterId('');
     setSelectedClientId('');
+    setSelectedProductId('');
   };
 
   const renderColumn = (status: JobStatus, title: string, icon: any) => {
@@ -322,9 +363,38 @@ alert('Trabalho adicionado à fila!');
                   <label>Peça / Produto</label>
                   <div style={{ position: 'relative' }}>
                     <Layers size={16} style={iconOverlayStyle} />
-                    <input type="text" placeholder="Ex: Chassi v2" value={name} onChange={e => setName(e.target.value)} style={iconInputStyle} />
+                    <select 
+                      value={selectedProductId} 
+                      onChange={e => {
+                        if (e.target.value === '__new__') {
+                          setName('');
+                          setSelectedProductId('');
+                        } else {
+                          setSelectedProductId(e.target.value);
+                          const product = productsList.find(p => p.id === e.target.value);
+                          setName(product?.name || '');
+                        }
+                      }}
+                      style={{ ...iconInputStyle, cursor: 'pointer', paddingLeft: '36px' }}
+                    >
+                      <option value="">Selecione um produto...</option>
+                      <option value="__new__">+ Criar novo produto</option>
+                      {productsList.map(p => (
+                        <option key={p.id} value={p.id}>{p.name} ({p.printTime.toFixed(1)}h)</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
+                
+                {!selectedProductId && (
+                  <div className="input-group">
+                    <label>Nome da Peça (digite)</label>
+                    <div style={{ position: 'relative' }}>
+                      <Layers size={16} style={iconOverlayStyle} />
+                      <input type="text" placeholder="Ex: Chassi v2" value={name} onChange={e => setName(e.target.value)} style={{ ...iconInputStyle, paddingLeft: '36px' }} />
+                    </div>
+                  </div>
+                )}
 
                 <div className="input-group">
                   <label>Cliente Associado</label>
