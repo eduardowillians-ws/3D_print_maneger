@@ -20,10 +20,12 @@ import {
   Calendar,
   ExternalLink,
   Layers,
-  MoreHorizontal
+  MoreHorizontal,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
+import { clientsApi } from '../services/api/clients';
 
 interface Client {
   id: string;
@@ -53,39 +55,85 @@ export default function ClientsView() {
   const [phone, setPhone] = useState('');
   const [status, setStatus] = useState<'ATIVO' | 'INATIVO' | 'SUSPENSO'>('ATIVO');
 
-  const [clients, setClients] = useState<Client[]>([
-    { id: '1', name: "Componentes Aeroespaciais Inc.", initials: "CA", email: "compras@aeroespacial.io", phone: "(11) 98888-7777", orders: 142, ltv: 124500.00, status: "ATIVO", color: "var(--primary)", since: "12/01/2023" },
-    { id: '2', name: "Dispositivos MedTech LLC", initials: "DM", email: "suprimentos@medtech.com", phone: "(21) 97777-6666", orders: 84, ltv: 89240.50, status: "ATIVO", color: "#22D3EE", since: "24/03/2023" },
-    { id: '3', name: "Design de Prototipagem Rápida", initials: "DP", email: "j.silva@dpr.net", phone: "(31) 96666-5555", orders: 12, ltv: 4120.00, status: "INATIVO", color: "var(--text-muted)", since: "05/06/2023" },
-    { id: '4', name: "Vanguarda Logística", initials: "VL", email: "faturamento@vanguarda.co", phone: "(41) 95555-4444", orders: 3, ltv: 850.00, status: "SUSPENSO", color: "#FF4D4D", since: "18/09/2023" },
-    { id: '5', name: "Engenharia Nexus", initials: "EN", email: "contato@nexus.io", phone: "(51) 94444-3333", orders: 56, ltv: 62100.00, status: "ATIVO", color: "#8A2BE2", since: "30/11/2023" },
-  ]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleSaveClient = () => {
+  useEffect(() => {
+    loadClients();
+  }, []);
+
+  const loadClients = async () => {
+    setIsLoading(true);
+    const { data, error } = await clientsApi.getAll();
+    if (error) {
+      console.error('Erro ao carregar clientes:', error.message);
+      setIsLoading(false);
+      return;
+    }
+    
+    if (data) {
+      const mappedData: Client[] = data.map(c => ({
+        id: c.id,
+        name: c.name,
+        initials: c.name.substring(0, 2).toUpperCase(),
+        email: c.email || '',
+        phone: c.phone || '',
+        orders: 0,
+        ltv: 0,
+        status: 'ATIVO' as const,
+        color: '#8A2BE2',
+        since: new Date(c.created_at).toLocaleDateString('pt-BR')
+      }));
+      setClients(mappedData);
+    }
+    setIsLoading(false);
+  };
+
+  const handleSaveClient = async () => {
     if (!name || !email) {
       alert('Preencha os campos obrigatórios!');
       return;
     }
 
+    const clientData = {
+      name,
+      email,
+      phone: phone || null,
+      address: null,
+      tags: null
+    };
+
     if (editingClient) {
+      const { error } = await clientsApi.update(editingClient.id, clientData);
+      if (error) {
+        alert('Erro ao atualizar cliente: ' + error.message);
+        return;
+      }
       setClients(prev => prev.map(c => c.id === editingClient.id ? { 
         ...c, name, email, phone, status, initials: name.substring(0, 2).toUpperCase() 
       } : c));
       alert('Dados do cliente atualizados!');
     } else {
-      const newClient: Client = {
-        id: Date.now().toString(),
-        name,
-        email,
-        phone,
-        status,
-        initials: name.substring(0, 2).toUpperCase(),
-        orders: 0,
-        ltv: 0,
-        color: '#8A2BE2',
-        since: new Date().toLocaleDateString('pt-BR')
-      };
-      setClients([newClient, ...clients]);
+      const { data, error } = await clientsApi.create(clientData);
+      if (error) {
+        alert('Erro ao criar cliente: ' + error.message);
+        return;
+      }
+      if (data) {
+        const newClient: Client = {
+          id: data.id,
+          name: data.name,
+          initials: data.name.substring(0, 2).toUpperCase(),
+          email: data.email || '',
+          phone: data.phone || '',
+          orders: 0,
+          ltv: 0,
+          status: 'ATIVO',
+          color: '#8A2BE2',
+          since: new Date().toLocaleDateString('pt-BR')
+        };
+        setClients([newClient, ...clients]);
+      }
       alert('Novo cliente cadastrado!');
     }
     closeModal();
@@ -107,10 +155,14 @@ export default function ClientsView() {
     setActiveMenu(null);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Deseja excluir permanentemente este cliente e seu histórico?')) {
+const handleDelete = async (id: string) => {
+    if (confirm('Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.')) {
+      const { error } = await clientsApi.delete(id);
+      if (error) {
+        alert('Erro ao excluir cliente: ' + error.message);
+        return;
+      }
       setClients(prev => prev.filter(c => c.id !== id));
-      setActiveMenu(null);
     }
   };
 
@@ -164,7 +216,22 @@ export default function ClientsView() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredClients.map(client => (
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={6} style={{ ...tdStyle, textAlign: 'center', padding: '60px' }}>
+                        <Loader2 size={32} className="animate-spin" style={{ animation: 'spin 1s linear infinite', marginRight: '12px' }} />
+                        Carregando clientes...
+                      </td>
+                    </tr>
+                  ) : filteredClients.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ ...tdStyle, textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+                        <Users size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
+                        <p>Nenhum cliente encontrado</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredClients.map(client => (
                     <tr key={client.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
                       <td style={tdStyle}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -196,7 +263,8 @@ export default function ClientsView() {
                         </AnimatePresence>
                       </td>
                     </tr>
-                  ))}
+                  ))
+                  )}
                 </tbody>
             </table>
         </div>

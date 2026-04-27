@@ -172,17 +172,23 @@ Este plano documenta a transição progressiva dos dados mockados (gerados inlin
 
 ---
 
-### Fase 4: Módulo Clientes (CRM)
+### Fase 4: Módulo Clientes (CRM) ✅ CONCLUÍDO
 **Objetivo**: Substituir dados mockados de clientes.
 
 **Mock atual**: Lista fixa de clientes em `ClientsView.tsx`.
 
 **Etapas:**
-- [ ] **4.1** - Criar `src/services/api/clients.ts`.
-- [ ] **4.2** - Modificar `ClientsView.tsx` para consumir API.
-- [ ] **4.3** - Implementar busca e filtros.
+- [x] **4.1** - Criar `src/services/api/clients.ts`.
+- [x] **4.2** - Modificar `ClientsView.tsx` para consumir API.
+- [x] **4.3** - Implementar busca e filtros.
 - [ ] **4.4** - Conectar Drawer de histórico ao `client_id`.
 - [ ] **4.5** - Adicionar sistema de Tags (classificação).
+
+**Implementação:**
+- Dados reais do Supabase (tabela `clients`)
+- CRUD completo (create, update, delete)
+- Loading state com spinner
+- Busca por nome, email, telefone
 
 **Riscos**: Médio - dependência com orçamentos e produção (futuro).
 **Estratégia de rollback**: Cache local dos dados anteriores.
