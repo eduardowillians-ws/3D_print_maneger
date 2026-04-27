@@ -219,17 +219,23 @@ Este plano documenta a transição progressiva dos dados mockados (gerados inlin
 
 ---
 
-### Fase 6: Módulo Orçamentos
+### Fase 6: Módulo Orçamentos ✅ CONCLUÍDO
 **Objetivo**: Integrar gestão de orçamentos com dados reais.
 
 **Mock atual**: Lista de orçamentos em `OrcamentosView.tsx` / `EstimatesView.tsx`.
 
 **Etapas:**
-- [ ] **6.1** - Criar `src/services/api/quotes.ts`.
-- [ ] **6.2** - Modificar views de orçamentos.
-- [ ] **6.3** - Conectar `client_id` na criação de orçamentos.
-- [ ] **6.4** - Implementar status dinâmico (Aprovar/Rejeitar).
+- [x] **6.1** - Criar `src/services/api/quotes.ts`.
+- [x] **6.2** - Modificar views de orçamentos.
+- [x] **6.3** - Conectar `client_id` na criação de orçamentos.
+- [x] **6.4** - Implementar status dinâmico (Aprovar/Rejeitar).
 - [ ] **6.5** - Adicionar geração de PDF (pendente do roadmap).
+
+**Implementação:**
+- Dados reais do Supabase (tabela `quotes`)
+- CRUD completo (create, update, delete)
+- Status dinâmico (PENDENTE, APROVADO, REJEITADO, PAGO)
+- Loading state com spinner
 
 **Riscos**: Médio - depende de `clients` (Fase 4).
 **Estratégia de rollback**: Lista de orçamentos em memória.

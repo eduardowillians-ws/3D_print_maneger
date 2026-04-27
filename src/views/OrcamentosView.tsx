@@ -14,10 +14,12 @@ import {
   Edit2,
   Trash2,
   Download,
-  MoreHorizontal
+  MoreHorizontal,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
+import { quotesApi } from '../services/api/quotes';
 
 export default function OrcamentosView() {
   const { currencySymbol } = useSettings();
@@ -35,12 +37,38 @@ export default function OrcamentosView() {
   const [subtotal, setSubtotal] = useState(0);
   const [totalFinal, setTotalFinal] = useState(0);
 
-  const [orcamentos, setOrcamentos] = useState([
-    { id: 'Q-2048', client: 'Aerospace Dynamics Inc.', date: '24 Out, 2024', total: 1250.00, status: 'PENDENTE', unitValue: '1250', quantity: '1', shipping: '0' },
-    { id: 'Q-2047', client: 'Medical Prothetics LLC', date: '22 Out, 2024', total: 3400.00, status: 'APROVADO', unitValue: '1700', quantity: '2', shipping: '0' },
-    { id: 'Q-2046', client: 'Robotics Core', date: '20 Out, 2024', total: 850.50, status: 'ENVIADO', unitValue: '850.5', quantity: '1', shipping: '0' },
-    { id: 'Q-2045', client: 'Local Hobbyist Group', date: '18 Out, 2024', total: 120.00, status: 'REJEITADO', unitValue: '120', quantity: '1', shipping: '0' },
-  ]);
+  const [orcamentos, setOrcamentos] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadQuotes();
+  }, []);
+
+  const loadQuotes = async () => {
+    setIsLoading(true);
+    const { data, error } = await quotesApi.getAll();
+    if (error) {
+      console.error('Erro ao carregar orçamentos:', error.message);
+      setIsLoading(false);
+      return;
+    }
+    
+    if (data) {
+      const mappedData = data.map(q => ({
+        id: q.id,
+        client: q.description.split('-')[0] || 'Cliente',
+        date: new Date(q.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
+        total: Number(q.total_value),
+        status: q.status,
+        unitValue: Number(q.total_value).toString(),
+        quantity: '1',
+        shipping: '0',
+        clientId: q.client_id
+      }));
+      setOrcamentos(mappedData);
+    }
+    setIsLoading(false);
+  };
 
   const pendentesCount = orcamentos.filter(o => o.status === 'PENDENTE').length;
   const receitaEstimada = orcamentos.reduce((acc, curr) => acc + curr.total, 0);
@@ -53,23 +81,47 @@ export default function OrcamentosView() {
     setTotalFinal(q * v + s);
   }, [quantity, unitValue, shipping]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!client.trim()) { alert('Por favor, informe o nome do cliente.'); return; }
+
+    const quoteData = {
+      description: `${client.trim()} - Orçamento`,
+      total_value: totalFinal,
+      status: 'PENDENTE' as const,
+      expiry_date: expiryDate || null,
+      client_id: null
+    };
+
     if (editingItem) {
+      const { error } = await quotesApi.update(editingItem.id, quoteData);
+      if (error) {
+        alert('Erro ao atualizar orçamento: ' + error.message);
+        return;
+      }
       setOrcamentos(prev => prev.map(item => 
         item.id === editingItem.id 
           ? { ...item, client: client.trim(), unitValue, quantity, shipping, total: totalFinal } 
           : item
       ));
     } else {
-      setOrcamentos(prev => [{
-        id: `Q-${Math.floor(Math.random() * 9000) + 1000}`,
-        client: client.trim(),
-        date: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
-        status: 'PENDENTE',
-        unitValue, quantity, shipping,
-        total: totalFinal
-      }, ...prev]);
+      const { data, error } = await quotesApi.create(quoteData);
+      if (error) {
+        alert('Erro ao criar orçamento: ' + error.message);
+        return;
+      }
+      if (data) {
+        const newQuote = {
+          id: data.id,
+          client: client.trim(),
+          date: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
+          status: 'PENDENTE',
+          unitValue: totalFinal.toString(),
+          quantity: '1',
+          shipping: '0',
+          total: totalFinal
+        };
+        setOrcamentos(prev => [newQuote, ...prev]);
+      }
     }
     resetForm();
   };
@@ -84,14 +136,24 @@ export default function OrcamentosView() {
     setActiveMenu(null);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir este orçamento?')) {
+      const { error } = await quotesApi.delete(id);
+      if (error) {
+        alert('Erro ao excluir orçamento: ' + error.message);
+        return;
+      }
       setOrcamentos(prev => prev.filter(item => item.id !== id));
       setActiveMenu(null);
     }
   };
 
-  const handleApprove = (id: string) => {
+  const handleApprove = async (id: string) => {
+    const { error } = await quotesApi.updateStatus(id, 'APROVADO');
+    if (error) {
+      alert('Erro ao aprovar orçamento: ' + error.message);
+      return;
+    }
     setOrcamentos(prev => prev.map(item => item.id === id ? { ...item, status: 'APROVADO' } : item));
     setActiveMenu(null);
   };
@@ -139,7 +201,22 @@ export default function OrcamentosView() {
               </tr>
             </thead>
             <tbody>
-              {orcamentos.map((item) => (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    <Loader2 size={32} className="animate-spin" style={{ animation: 'spin 1s linear infinite', marginRight: '12px' }} />
+                    Carregando orçamentos...
+                  </td>
+                </tr>
+              ) : orcamentos.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    <FileText size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
+                    <p>Nenhum orçamento encontrado</p>
+                  </td>
+                </tr>
+              ) : (
+                orcamentos.map((item) => (
                 <tr key={item.id} style={{ borderBottom: '1px solid var(--border-glass)' }}>
                   <td style={{ padding: '16px 24px', fontWeight: 600 }}>{item.id}</td>
                   <td style={{ padding: '16px 24px' }}>{item.client}</td>
@@ -162,7 +239,8 @@ export default function OrcamentosView() {
                     </AnimatePresence>
                   </td>
                 </tr>
-              ))}
+              ))
+              )}
             </tbody>
           </table>
         </div>
