@@ -15,10 +15,13 @@ import {
   History,
   X,
   ChevronDown,
-  RotateCcw
+  RotateCcw,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
+import { transactionsApi } from '../services/api/transactions';
+import { TransactionType, TransactionStatus } from '../types/database';
 
 interface Transaction {
   id: string;
@@ -63,29 +66,79 @@ export default function FinancialView() {
     };
   };
 
-  const currentData = getFinancialData(filterMonth, filterYear);
+  
 
-  const [transactions, setTransactions] = useState<Transaction[]>([
-    { id: 'TRX-9901', description: 'Venda de Chassi de Drone v2', category: 'Vendas', date: '25/04/2024', status: 'CONCLUÍDO', type: 'INCOME', value: 450.00 },
-    { id: 'TRX-9902', description: 'Compra de Filamento PLA Esun', category: 'Insumos', date: '24/04/2024', status: 'CONCLUÍDO', type: 'EXPENSE', value: 120.00 },
-    { id: 'TRX-9903', description: 'Serviço de Prototipagem Aerospace', category: 'Serviços', date: '22/04/2024', status: 'PENDENTE', type: 'INCOME', value: 3200.00 },
-    { id: 'TRX-9904', description: 'Manutenção Prusa XL #02', category: 'Manutenção', date: '20/04/2024', status: 'CONCLUÍDO', type: 'EXPENSE', value: 85.50 },
-    { id: 'TRX-9905', description: 'Venda Engrenagens Robótica', category: 'Vendas', date: '18/04/2024', status: 'CONCLUÍDO', type: 'INCOME', value: 1250.00 },
-  ]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadTransactions();
+  }, []);
+
+  const loadTransactions = async () => {
+    setIsLoading(true);
+    const { data, error } = await transactionsApi.getAll();
+    if (error) {
+      console.error('Erro ao carregar transações:', error.message);
+      setIsLoading(false);
+      return;
+    }
+    
+    if (data) {
+      const mappedData: Transaction[] = data.map(t => ({
+        id: t.id,
+        description: t.description,
+        category: t.category,
+        date: new Date(t.date).toLocaleDateString('pt-BR'),
+        status: t.status,
+        type: t.type,
+        value: Number(t.value)
+      }));
+      setTransactions(mappedData);
+    }
+    setIsLoading(false);
+  };
+
+  const stats = {
+    receita: transactions.filter(t => t.type === 'INCOME' && t.status === 'CONCLUÍDO').reduce((acc, t) => acc + t.value, 0),
+    custos: transactions.filter(t => t.type === 'EXPENSE' && t.status === 'CONCLUÍDO').reduce((acc, t) => acc + t.value, 0),
+    lucro: 0,
+    ticket: 0
+  };
+  stats.lucro = stats.receita - stats.custos;
+  stats.ticket = transactions.length > 0 ? stats.receita / transactions.filter(t => t.type === 'INCOME').length : 0;
+
+  const currentData = {
+    receita: stats.receita.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+    custos: stats.custos.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+    lucro: stats.lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+    ticket: stats.ticket.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+    chartValues: []
+  };
 
   const handleRefresh = () => {
     setIsFiltering(true);
     setTimeout(() => setIsFiltering(false), 800);
   };
 
-  const handleDeleteTransaction = (id: string) => {
+  const handleDeleteTransaction = async (id: string) => {
     if (confirm('Deseja realmente excluir este registro financeiro? Esta ação é irreversível.')) {
+      const { error } = await transactionsApi.delete(id);
+      if (error) {
+        alert('Erro ao excluir transação: ' + error.message);
+        return;
+      }
       setTransactions(prev => prev.filter(t => t.id !== id));
       setActiveActions(null);
     }
   };
 
-  const handleStatusChange = (id: string, newStatus: any) => {
+  const handleStatusChange = async (id: string, newStatus: TransactionStatus) => {
+    const { error } = await transactionsApi.updateStatus(id, newStatus);
+    if (error) {
+      alert('Erro ao atualizar status: ' + error.message);
+      return;
+    }
     setTransactions(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
     setActiveActions(null);
   };
@@ -105,36 +158,56 @@ export default function FinancialView() {
     setActiveActions(null);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!description.trim()) {
       alert('Informe uma descrição!');
       return;
     }
 
     const val = parseFloat(value.replace(',', '.')) || 0;
-    const formattedDate = date.split('-').reverse().join('/');
+    
+    const transactionData = {
+      description,
+      category,
+      type: type as TransactionType,
+      value: val,
+      status: 'CONCLUÍDO' as TransactionStatus,
+      date: date
+    };
 
     if (editingTransaction) {
+      const { error } = await transactionsApi.update(editingTransaction.id, transactionData);
+      if (error) {
+        alert('Erro ao atualizar transação: ' + error.message);
+        return;
+      }
       setTransactions(prev => prev.map(t => t.id === editingTransaction.id ? {
         ...t,
         description,
         category,
         value: val,
         type,
-        date: formattedDate
+        date: new Date(date).toLocaleDateString('pt-BR')
       } : t));
       alert('Transação atualizada!');
     } else {
-      const newTrx: Transaction = {
-        id: `TRX-${Math.floor(Math.random() * 9000) + 1000}`,
-        description,
-        category,
-        date: formattedDate,
-        status: 'CONCLUÍDO',
-        type,
-        value: val
-      };
-      setTransactions(prev => [newTrx, ...prev]);
+      const { data, error } = await transactionsApi.create(transactionData);
+      if (error) {
+        alert('Erro ao criar transação: ' + error.message);
+        return;
+      }
+      if (data) {
+        const newTrx: Transaction = {
+          id: data.id,
+          description: data.description,
+          category: data.category,
+          date: new Date(data.date).toLocaleDateString('pt-BR'),
+          status: data.status,
+          type: data.type,
+          value: Number(data.value)
+        };
+        setTransactions(prev => [newTrx, ...prev]);
+      }
       alert('Nova transação lançada!');
     }
     resetForm();
