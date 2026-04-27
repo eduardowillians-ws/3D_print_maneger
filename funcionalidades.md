@@ -150,16 +150,22 @@ Este plano documenta a transição progressiva dos dados mockados (gerados inlin
 
 ---
 
-### Fase 3: Módulo Impressoras
+### Fase 3: Módulo Impressoras ✅ CONCLUÍDO
 **Objetivo**: Integrar monitoramento de impressoras com dados reais.
 
 **Mock atual**: Status simulado em `ImpressorasView.tsx`.
 
 **Etapas:**
-- [ ] **3.1** - Criar `src/services/api/printers.ts`.
-- [ ] **3.2** - Conectar `ImpressorasView.tsx` à API.
-- [ ] **3.3** - Implementar ações (Calibrar, Renomear, Remover).
-- [ ] **3.4** - Adicionar modal de "Vincular Nova Impressora" com POST.
+- [x] **3.1** - Criar `src/services/api/printers.ts`.
+- [x] **3.2** - Conectar `ImpressorasView.tsx` à API.
+- [x] **3.3** - Implementar ações (Calibrar, Renomear, Remover).
+- [x] **3.4** - Adicionar modal de "Vincular Nova Impressora" com POST.
+
+**Implementação:**
+- Dados reais do Supabase (tabela `printers`)
+- Loading state com spinner
+- CRUD completo (create, update, rename, delete)
+- Mapeamento de status: OCIOSA, IMPRIMINDO, MANUTENÇÃO
 
 **Riscos**: Médio - integração com telemetria requer validação de dados.
 **Estratégia de rollback**: Interface continua mostrando último dado válido.

@@ -15,10 +15,13 @@ import {
   Settings,
   RefreshCw,
   Zap,
-  Activity
+  Activity,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
+import { printersApi } from '../services/api/printers';
+import { PrinterStatus } from '../types/database';
 
 interface Printer {
   id: string;
@@ -50,28 +53,74 @@ export default function ImpressorasView() {
   const [fan, setFan] = useState('100');
   const [initialHours, setInitialHours] = useState('0');
 
-  const [printers, setPrinters] = useState<Printer[]>([
-    { id: '1', name: 'Voron 2.4 R2', model: 'Custom Voron', status: 'ATIVA', hours: '1.240 h', activeJob: 'Drone_Chassis_v4.gcode', progress: 45, targetHotend: '245', targetBed: '100', targetFan: '40' },
-    { id: '2', name: 'Bambu Lab X1C', model: 'X1 Carbon', status: 'OCIOSA', hours: '850 h', targetHotend: '220', targetBed: '55', targetFan: '100' },
-    { id: '3', name: 'Prusa MK4', model: 'Original Prusa MK4', status: 'MANUTENCAO', hours: '2.100 h', alert: 'EXTRUSORA ENTUPIDA', targetHotend: '230', targetBed: '60', targetFan: '100' },
-  ]);
+  const [printers, setPrinters] = useState<Printer[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleSavePrinter = () => {
+  useEffect(() => {
+    loadPrinters();
+  }, []);
+
+  const loadPrinters = async () => {
+    setIsLoading(true);
+    const { data, error } = await printersApi.getAll();
+    if (error) {
+      console.error('Erro ao carregar impressoras:', error.message);
+      setIsLoading(false);
+      return;
+    }
+    
+    if (data) {
+      const mappedData: Printer[] = data.map(p => ({
+        id: p.id,
+        name: p.name,
+        model: p.name,
+        status: p.status === 'IMPRIMINDO' ? 'ATIVA' : p.status === 'MANUTENÇÃO' ? 'MANUTENCAO' : 'OCIOSA',
+        hours: `${p.current_hours.toFixed(0)} h`,
+        targetHotend: p.target_hotend.toString(),
+        targetBed: p.target_bed.toString(),
+        targetFan: p.target_fan.toString()
+      }));
+      setPrinters(mappedData);
+    }
+    setIsLoading(false);
+  };
+
+  const handleSavePrinter = async () => {
     if (!name || !model) {
       alert('Nome e modelo são obrigatórios!');
       return;
     }
-    const newPrinter: Printer = {
-      id: Date.now().toString(),
-      name,
-      model,
-      status: 'OCIOSA',
-      hours: `${initialHours} h`,
-      targetHotend: hotend,
-      targetBed: bed,
-      targetFan: fan
+
+    const printerData = {
+      name: name,
+      status: 'OCIOSA' as PrinterStatus,
+      target_hotend: parseInt(hotend),
+      target_bed: parseInt(bed),
+      target_fan: parseInt(fan),
+      initial_hours: parseFloat(initialHours),
+      current_hours: parseFloat(initialHours)
     };
-    setPrinters([...printers, newPrinter]);
+
+    const { data, error } = await printersApi.create(printerData);
+    if (error) {
+      alert('Erro ao cadastrar impressora: ' + error.message);
+      return;
+    }
+
+    if (data) {
+      const newPrinter: Printer = {
+        id: data.id,
+        name: data.name,
+        model: data.name,
+        status: 'OCIOSA',
+        hours: `${data.current_hours.toFixed(0)} h`,
+        targetHotend: data.target_hotend.toString(),
+        targetBed: data.target_bed.toString(),
+        targetFan: data.target_fan.toString()
+      };
+      setPrinters([...printers, newPrinter]);
+    }
+    
     setShowAddModal(false);
     resetForm();
     alert('Impressora cadastrada com sucesso!');
@@ -110,8 +159,15 @@ export default function ImpressorasView() {
     setActiveMenu(null);
   };
 
-  const handleRename = () => {
+  const handleRename = async () => {
     if (!name.trim() || !selectedPrinter) return;
+    
+    const { error } = await printersApi.update(selectedPrinter.id, { name: name.trim() });
+    if (error) {
+      alert('Erro ao renomear impressora: ' + error.message);
+      return;
+    }
+    
     setPrinters(prev => prev.map(p => 
         p.id === selectedPrinter.id ? { ...p, name: name.trim() } : p
     ));
@@ -127,10 +183,15 @@ export default function ImpressorasView() {
     setActiveMenu(null);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if(confirm('Atenção: Excluir a impressora removerá todo o histórico de manutenção. Confirma?')) {
-        setPrinters(prev => prev.filter(p => p.id !== id));
-        setActiveMenu(null);
+      const { error } = await printersApi.delete(id);
+      if (error) {
+        alert('Erro ao excluir impressora: ' + error.message);
+        return;
+      }
+      setPrinters(prev => prev.filter(p => p.id !== id));
+      setActiveMenu(null);
     }
   };
 
@@ -157,7 +218,26 @@ export default function ImpressorasView() {
 
       {/* Grid de Impressoras */}
       <div style={gridStyle}>
-        {printers.map(printer => (
+        {isLoading ? (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'center', padding: '60px', color: 'var(--text-muted)' }}
+          >
+            <Loader2 size={32} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
+            <span style={{ marginLeft: '12px' }}>Carregando impressoras...</span>
+          </motion.div>
+        ) : printers.length === 0 ? (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}
+          >
+            <PrinterIcon size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
+            <p>Nenhuma impressora cadastrada</p>
+          </motion.div>
+        ) : (
+          printers.map(printer => (
           <div key={printer.id} className="glass-panel" style={cardStyle}>
             {/* Tag de Status */}
             <div style={{ position: 'absolute', top: '16px', right: '16px' }}>
@@ -229,7 +309,8 @@ export default function ImpressorasView() {
                 </div>
             </div>
           </div>
-        ))}
+        ))
+        )}
       </div>
 
       {/* Modais */}
