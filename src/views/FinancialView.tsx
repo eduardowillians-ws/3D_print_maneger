@@ -57,7 +57,7 @@ export default function FinancialView() {
   // Estados para dropdowns customizados
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
-  const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const months = ['Todos', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
   const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString());
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -145,15 +145,17 @@ export default function FinancialView() {
     if (dateParts.length !== 3) return false;
     const year = dateParts[0];
     const transMonth = parseInt(dateParts[1]) - 1;
-    const monthIndex = months.indexOf(filterMonth);
+    const monthIndex = months.indexOf(filterMonth) - 1; // -1 porque "Todos" é índice 0
     
     const categoryMatch = filterCategory === 'Todas' || t.category === filterCategory;
-    const dateMatch = year === filterYear && transMonth === monthIndex;
+    const dateMatch = filterMonth === 'Todos' 
+      ? year === filterYear 
+      : year === filterYear && transMonth === monthIndex;
     
     return categoryMatch && dateMatch;
   });
 
-  const monthTransactions = months.map((_, monthIndex) => {
+  const monthTransactions = months.slice(1).map((_, monthIndex) => { // slice(1) para ignorar "Todos"
     return transactions.filter(t => {
       const dateStr = (t as any).dateRaw || t.date;
       const dateParts = dateStr.split('-');
@@ -171,17 +173,21 @@ export default function FinancialView() {
     return Math.round((income / maxValue) * 100);
   });
 
+const currentMonthIndexForHighlight = filterMonth === 'Todos' 
+    ? new Date().getMonth() 
+    : months.indexOf(filterMonth) - 1;
+  
   const currentData = {
-    receita: stats.receita.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-    custos: stats.custos.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-    lucro: stats.lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+    receita: currentStats.receita.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+    custos: currentStats.custos.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+    lucro: currentStats.lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
     ticket: stats.ticket.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-    chartValues
+    chartValues,
+    highlightMonth: currentMonthIndexForHighlight
   };
 
   const handleRefresh = () => {
-    const currentMonth = new Date().toLocaleString('pt-BR', { month: 'long' });
-    setFilterMonth(currentMonth.charAt(0).toUpperCase() + currentMonth.slice(1));
+    setFilterMonth('Todos');
     setFilterCategory('Todas');
     setIsFiltering(true);
     setTimeout(() => setIsFiltering(false), 800);
@@ -336,8 +342,7 @@ export default function FinancialView() {
 
         <div style={{ height: '280px', display: 'flex', alignItems: 'flex-end', gap: '8px', padding: '0 20px', borderBottom: '1px solid rgba(255,255,255,0.05)', overflowX: 'visible' }}>
           {currentData.chartValues.map((h, i) => {
-            const monthIndex = months.indexOf(filterMonth);
-            const isCurrentMonth = i === monthIndex;
+            const isCurrentMonth = i === currentData.highlightMonth;
             return (
               <div key={i} style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end', position: 'relative' }}>
                 <motion.div 
@@ -357,7 +362,7 @@ export default function FinancialView() {
           })}
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 20px', color: 'var(--text-dim)', fontSize: '11px' }}>
-          {months.map((m, i) => (
+          {months.slice(1).map((m, i) => (
             <span key={i} style={{ flex: 1, textAlign: 'center' }}>{m.substring(0, 3)}</span>
           ))}
         </div>
