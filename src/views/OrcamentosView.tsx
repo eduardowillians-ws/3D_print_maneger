@@ -20,6 +20,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
 import { quotesApi } from '../services/api/quotes';
+import { clientsApi } from '../services/api/clients';
 
 export default function OrcamentosView() {
   const { currencySymbol } = useSettings();
@@ -39,10 +40,19 @@ export default function OrcamentosView() {
 
   const [orcamentos, setOrcamentos] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [clientsList, setClientsList] = useState<any[]>([]);
 
   useEffect(() => {
     loadQuotes();
+    loadClients();
   }, []);
+
+  const loadClients = async () => {
+    const { data } = await clientsApi.getAll();
+    if (data) {
+      setClientsList(data.map(c => ({ id: c.id, name: c.name })));
+    }
+  };
 
   const loadQuotes = async () => {
     setIsLoading(true);
@@ -72,6 +82,9 @@ export default function OrcamentosView() {
 
   const pendentesCount = orcamentos.filter(o => o.status === 'PENDENTE').length;
   const receitaEstimada = orcamentos.reduce((acc, curr) => acc + curr.total, 0);
+  const taxaConversao = orcamentos.length > 0 
+    ? Math.round((orcamentos.filter(o => o.status === 'APROVADO' || o.status === 'PAGO').length / orcamentos.length) * 100)
+    : 0;
 
   useEffect(() => {
     const q = parseFloat(quantity) || 0;
@@ -183,7 +196,7 @@ export default function OrcamentosView() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '48px' }}>
         <StatCard label="APROVAÇÕES PENDENTES" value={pendentesCount.toString()} icon={Clock} color="#F59E0B" />
-        <StatCard label="TAXA DE CONVERSÃO" value="68%" subValue="+5%" icon={TrendingUp} color="var(--secondary)" />
+        <StatCard label="TAXA DE CONVERSÃO" value={`${taxaConversao}%`} subValue={`${orcamentos.length} total`} icon={TrendingUp} color="var(--secondary)" />
         <StatCard label="RECEITA ESTIMADA" value={`${currencySymbol} ${receitaEstimada.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`} subValue="Fila" icon={DollarSign} color="var(--primary)" />
       </div>
 
@@ -255,7 +268,16 @@ export default function OrcamentosView() {
                 <label>Cliente</label>
                 <div style={{ position: 'relative' }}>
                   <User size={16} style={iconOverlayStyle} />
-                  <input type="text" placeholder="Nome do cliente..." value={client} onChange={e => setClient(e.target.value)} style={iconInputStyle} />
+                  <select 
+                    value={client} 
+                    onChange={e => setClient(e.target.value)} 
+                    style={{ ...iconInputStyle, cursor: 'pointer' }}
+                  >
+                    <option value="">Selecione um cliente...</option>
+                    {clientsList.map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
