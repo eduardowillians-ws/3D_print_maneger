@@ -88,6 +88,13 @@ export interface ProductionJob {
   start_time: string | null;
   end_time: string | null;
   created_at: string;
+  target_hotend?: number;
+  target_bed?: number;
+  speed_percentage?: number;
+  quantity_good?: number;
+  quantity_bad?: number;
+  quality_checked?: boolean;
+  quality_notes?: string;
 }
 
 export interface ProductionJobMaterial {

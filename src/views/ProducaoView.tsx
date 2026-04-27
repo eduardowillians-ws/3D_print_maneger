@@ -27,7 +27,7 @@ import { productsApi } from '../services/api/products';
 import { materialsApi } from '../services/api/materials';
 import { ProductionStatus } from '../types/database';
 
-type JobStatus = 'PENDENTE' | 'IMPRIMINDO' | 'CONCLUIDO' | 'ARQUIVADO';
+type JobStatus = 'PENDENTE' | 'IMPRIMINDO' | 'CONCLUIDO' | 'ARQUIVADO' | 'QUALIDADE';
 
 interface ProductionJob {
   id: string;
@@ -38,6 +38,11 @@ interface ProductionJob {
   progress: number;
   status: JobStatus;
   customer: string;
+  quantity?: number;
+  quantity_good?: number;
+  quantity_bad?: number;
+  quality_checked?: boolean;
+  quality_notes?: string;
 }
 
 export default function ProducaoView() {
@@ -52,6 +57,18 @@ export default function ProducaoView() {
   const [customer, setCustomer] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [quantityError, setQuantityError] = useState(false);
+  
+  // Parâmetros de produção
+  const [targetHotend, setTargetHotend] = useState('210');
+  const [targetBed, setTargetBed] = useState('60');
+  const [speedPercentage, setSpeedPercentage] = useState('100');
+  
+  // Estado para qualidade
+  const [showQualityModal, setShowQualityModal] = useState(false);
+  const [qualityJob, setQualityJob] = useState<any>(null);
+  const [quantityGood, setQuantityGood] = useState('0');
+  const [quantityBad, setQuantityBad] = useState('0');
+  const [qualityNotes, setQualityNotes] = useState('');
   
   const [jobs, setJobs] = useState<ProductionJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -202,7 +219,13 @@ export default function ProducaoView() {
       status: 'FILA' as ProductionStatus,
       progress: 0,
       printer_id: selectedPrinterId || null,
-      start_time: null
+      start_time: null,
+      target_hotend: parseInt(targetHotend) || 210,
+      target_bed: parseInt(targetBed) || 60,
+      speed_percentage: parseInt(speedPercentage) || 100,
+      quantity_good: 0,
+      quantity_bad: 0,
+      quality_checked: false
     };
 
     // Preparar materiais do job (apenas os que têm material selecionado)
@@ -261,6 +284,19 @@ alert('Trabalho adicionado à fila!');
   };
 
   const moveJob = async (id: string, newStatus: JobStatus) => {
+    // Se for QUALIDADE, abrir modal
+    if (newStatus === 'QUALIDADE') {
+      const job = jobs.find(j => j.id === id);
+      if (job) {
+        setQualityJob(job);
+        setQuantityGood(job.quantity_good?.toString() || '0');
+        setQuantityBad(job.quantity_bad?.toString() || '0');
+        setQualityNotes(job.quality_notes || '');
+        setShowQualityModal(true);
+      }
+      return;
+    }
+
     const statusMap: Record<string, ProductionStatus> = {
       'PENDENTE': 'FILA',
       'IMPRIMINDO': 'IMPRIMINDO',
@@ -348,6 +384,9 @@ alert('Trabalho adicionado à fila!');
     setSelectedClientId('');
     setSelectedProductId('');
     setIsNewProduct(false);
+    setTargetHotend('210');
+    setTargetBed('60');
+    setSpeedPercentage('100');
     setJobMaterials([
       { materialId: '', weight: 0, weightPerUnit: 0 },
       { materialId: '', weight: 0, weightPerUnit: 0 },
@@ -377,6 +416,13 @@ alert('Trabalho adicionado à fila!');
                   onMove={(status) => moveJob(job.id, status)} 
                   onDelete={() => deleteJob(job.id)} 
                   onEdit={() => startEdit(job)}
+                  onQuality={() => {
+                    setQualityJob(job);
+                    setQuantityGood(job.quantity_good?.toString() || '0');
+                    setQuantityBad(job.quantity_bad?.toString() || '0');
+                    setQualityNotes(job.quality_notes || '');
+                    setShowQualityModal(true);
+                  }}
                 />
             ))}
           </AnimatePresence>
@@ -607,6 +653,36 @@ alert('Trabalho adicionado à fila!');
                   }
                 `}</style>
 
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                  <div className="input-group">
+                    <label>Temp. Bico (°C)</label>
+                    <input 
+                      type="number" 
+                      value={targetHotend} 
+                      onChange={e => setTargetHotend(e.target.value)}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div className="input-group">
+                    <label>Temp. Mesa (°C)</label>
+                    <input 
+                      type="number" 
+                      value={targetBed} 
+                      onChange={e => setTargetBed(e.target.value)}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div className="input-group">
+                    <label>Velocidade (%)</label>
+                    <input 
+                      type="number" 
+                      value={speedPercentage} 
+                      onChange={e => setSpeedPercentage(e.target.value)}
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
+
                 <div style={{ marginTop: '8px' }}>
                   <label style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: '12px', display: 'block' }}>
                     Materiais (até 4 slots - AMS)
@@ -648,7 +724,88 @@ alert('Trabalho adicionado à fila!');
                 <button className="btn-primary" style={{ width: '100%', height: '54px', fontSize: '16px' }} onClick={handleCreateJob}>
                    {editingJob ? 'Salvar Alterações' : 'Lançar na Fila de Produção'}
                 </button>
-             </div>
+</div>
+           </Modal>
+        )}
+      </AnimatePresence>
+
+      {/* Modal: Qualidade */}
+      <AnimatePresence>
+        {showQualityModal && qualityJob && (
+          <Modal title={`Qualidade - ${qualityJob.name}`} onClose={() => setShowQualityModal(false)}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '12px' }}>
+                <p style={{ fontSize: '13px', color: 'var(--text-dim)', marginBottom: '8px' }}>Quantidade Produzida</p>
+                <p style={{ fontSize: '24px', fontWeight: 800, color: 'var(--primary)' }}>{qualityJob.quantity || 0} unidades</p>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div className="input-group">
+                  <label style={{ color: 'var(--secondary)' }}>Peças Boas</label>
+                  <input 
+                    type="number" 
+                    value={quantityGood}
+                    onChange={e => setQuantityGood(e.target.value)}
+                    style={{ ...inputStyle, borderColor: 'var(--secondary)' }}
+                  />
+                </div>
+                <div className="input-group">
+                  <label style={{ color: 'var(--error)' }}>Peças Ruins</label>
+                  <input 
+                    type="number" 
+                    value={quantityBad}
+                    onChange={e => setQuantityBad(e.target.value)}
+                    style={{ ...inputStyle, borderColor: 'var(--error)' }}
+                  />
+                </div>
+              </div>
+
+              <div className="input-group">
+                <label>Observações</label>
+                <textarea 
+                  value={qualityNotes}
+                  onChange={e => setQualityNotes(e.target.value)}
+                  placeholder="Ex: Problema de adesão na borda..."
+                  style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }}
+                />
+              </div>
+
+              {/* Eficiência */}
+              {(() => {
+                const good = parseInt(quantityGood) || 0;
+                const total = qualityJob.quantity || 1;
+                const efficiency = Math.round((good / total) * 100);
+                return (
+                  <div style={{ background: efficiency >= 90 ? 'rgba(74, 225, 118, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '16px', borderRadius: '12px', textAlign: 'center' }}>
+                    <p style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: '4px' }}>Eficiência</p>
+                    <p style={{ fontSize: '32px', fontWeight: 800, color: efficiency >= 90 ? 'var(--secondary)' : '#F59E0B' }}>{efficiency}%</p>
+                  </div>
+                );
+              })()}
+
+              <button className="btn-primary" style={{ width: '100%', height: '54px', fontSize: '16px' }} onClick={async () => {
+                const good = parseInt(quantityGood) || 0;
+                const bad = parseInt(quantityBad) || 0;
+                
+                const { error } = await productionApi.update(qualityJob.id, {
+                  quantity_good: good,
+                  quantity_bad: bad,
+                  quality_checked: true,
+                  quality_notes: qualityNotes
+                });
+                
+                if (error) {
+                  alert('Erro ao salvar qualidade: ' + error.message);
+                  return;
+                }
+                
+                setShowQualityModal(false);
+                loadJobs();
+                alert('Dados de qualidade salvos!');
+              }}>
+                Salvar Qualidade
+              </button>
+            </div>
           </Modal>
         )}
       </AnimatePresence>
@@ -656,7 +813,7 @@ alert('Trabalho adicionado à fila!');
   );
 }
 
-function JobCard({ job, onMove, onDelete, onEdit }: { job: ProductionJob, onMove: (s: JobStatus) => void, onDelete: () => void, onEdit: () => void }) {
+function JobCard({ job, onMove, onDelete, onEdit, onQuality }: { job: ProductionJob, onMove: (s: JobStatus) => void, onDelete: () => void, onEdit: () => void, onQuality?: () => void }) {
   return (
     <motion.div 
       layout
@@ -711,16 +868,25 @@ function JobCard({ job, onMove, onDelete, onEdit }: { job: ProductionJob, onMove
              Iniciar Impressão <ChevronRight size={16} />
            </button>
          )}
-         {job.status === 'IMPRIMINDO' && (
-           <button className="btn-primary" style={{ flex: 1, padding: '10px', fontSize: '12px', fontWeight: 700, background: 'var(--secondary)' }} onClick={() => onMove('CONCLUIDO')}>
-             Concluir Peça <CheckCircle size={16} />
-           </button>
-         )}
-         {job.status === 'CONCLUIDO' && (
-           <button className="btn-primary" style={{ flex: 1, padding: '10px', fontSize: '12px', fontWeight: 700, background: 'rgba(255,255,255,0.05)', color: 'var(--text-dim)', border: '1px solid var(--border-glass)' }} onClick={() => onMove('ARQUIVADO')}>
-             <Archive size={16} /> Arquivar Trabalho
-           </button>
-         )}
+{job.status === 'IMPRIMINDO' && (
+            <button className="btn-primary" style={{ flex: 1, padding: '10px', fontSize: '12px', fontWeight: 700, background: 'var(--secondary)' }} onClick={() => onMove('CONCLUIDO')}>
+              Concluir Peça <CheckCircle size={16} />
+            </button>
+          )}
+          {job.status === 'CONCLUIDO' && (
+            <>
+              <button 
+                className="btn-primary" 
+                style={{ flex: 1, padding: '10px', fontSize: '12px', fontWeight: 700, background: job.quality_checked ? 'var(--secondary)' : '#F59E0B', color: 'white' }} 
+                onClick={() => onMove('QUALIDADE')}
+              >
+                {job.quality_checked ? `OK (${job.quantity_good}/${job.quantity})` : 'Qualidade'} <CheckCircle size={16} />
+              </button>
+              <button className="btn-primary" style={{ flex: 1, padding: '10px', fontSize: '12px', fontWeight: 700, background: 'rgba(255,255,255,0.05)', color: 'var(--text-dim)', border: '1px solid var(--border-glass)' }} onClick={() => onMove('ARQUIVADO')}>
+                <Archive size={16} /> Arquivar
+              </button>
+            </>
+          )}
       </div>
     </motion.div>
   );
