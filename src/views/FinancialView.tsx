@@ -77,15 +77,20 @@ export default function FinancialView() {
     }
     
     if (data) {
-      const mappedData: Transaction[] = data.map(t => ({
-        id: t.id,
-        description: t.description,
-        category: t.category,
-        date: new Date(t.date).toLocaleDateString('pt-BR'),
-        status: t.status,
-        type: t.type,
-        value: Number(t.value)
-      }));
+      const mappedData: Transaction[] = data.map(t => {
+        const dateStr = String(t.date).split('T')[0];
+        const [year, month, day] = dateStr.split('-');
+        return {
+          id: t.id,
+          description: t.description,
+          category: t.category,
+          date: `${day}/${month}/${year}`,
+          dateRaw: dateStr,
+          status: t.status,
+          type: t.type,
+          value: Number(t.value)
+        };
+      });
       setTransactions(mappedData);
     }
     setIsLoading(false);
@@ -101,20 +106,27 @@ export default function FinancialView() {
   stats.ticket = transactions.length > 0 ? stats.receita / transactions.filter(t => t.type === 'INCOME').length : 0;
 
   const filteredTransactions = transactions.filter(t => {
-    const dateParts = t.date.split('/');
+    const dateStr = (t as any).dateRaw || t.date;
+    const dateParts = dateStr.split('-');
     if (dateParts.length !== 3) return false;
-    const year = dateParts[2];
+    const year = dateParts[0];
+    const transMonth = parseInt(dateParts[1]) - 1;
     const monthIndex = months.indexOf(filterMonth);
-    const transMonth = new Date(`${dateParts[1]}/${dateParts[0]}/${dateParts[2]}`).getMonth();
-    return year === filterYear && transMonth === monthIndex;
+    
+    const categoryMatch = filterCategory === 'Todas' || t.category === filterCategory;
+    const dateMatch = year === filterYear && transMonth === monthIndex;
+    
+    return categoryMatch && dateMatch;
   });
 
   const monthTransactions = months.map((_, monthIndex) => {
     return transactions.filter(t => {
-      const dateParts = t.date.split('/');
+      const dateStr = (t as any).dateRaw || t.date;
+      const dateParts = dateStr.split('-');
       if (dateParts.length !== 3) return false;
-      const transDate = new Date(`${dateParts[1]}/${dateParts[0]}/${dateParts[2]}`);
-      return transDate.getMonth() === monthIndex && transDate.getFullYear().toString() === filterYear;
+      const transYear = dateParts[0];
+      const transMonth = parseInt(dateParts[1]) - 1;
+      return transYear === filterYear && transMonth === monthIndex;
     });
   });
 
@@ -277,7 +289,7 @@ export default function FinancialView() {
             {/* Custom Dropdowns */}
             <CustomSelect label={filterMonth} options={months} isOpen={openDropdown === 'month'} onToggle={() => toggleDropdown('month')} onSelect={(val: string) => { setFilterMonth(val); setOpenDropdown(null); }} />
             <CustomSelect label={filterYear} options={years} isOpen={openDropdown === 'year'} onToggle={() => toggleDropdown('year')} onSelect={(val: string) => { setFilterYear(val); setOpenDropdown(null); }} />
-            <CustomSelect label={filterCategory} options={['Todas', 'Vendas', 'Insumos', 'Manutenção']} isOpen={openDropdown === 'category'} onToggle={() => toggleDropdown('category')} onSelect={(val: string) => { setFilterCategory(val); setOpenDropdown(null); }} />
+            <CustomSelect label={filterCategory} options={['Todas', 'Vendas', 'Insumos', 'Serviços', 'Manutenção', 'Energia', 'Aluguel']} isOpen={openDropdown === 'category'} onToggle={() => toggleDropdown('category')} onSelect={(val: string) => { setFilterCategory(val); setOpenDropdown(null); }} />
             
             <button onClick={handleRefresh} style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-glass)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
               <RefreshCw size={16} className={isFiltering ? 'animate-spin' : ''} />
@@ -286,21 +298,30 @@ export default function FinancialView() {
         </div>
 
         <div style={{ height: '280px', display: 'flex', alignItems: 'flex-end', gap: '8px', padding: '0 20px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-          {currentData.chartValues.map((h, i) => (
-            <div key={i} style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end', position: 'relative' }}>
-              <motion.div 
-                key={`${filterMonth}-${filterYear}-${i}`}
-                initial={{ height: 0 }} 
-                animate={{ height: isFiltering ? 0 : `${h}%` }} 
-                style={{ 
-                  width: '100%',
-                  background: i === 11 ? 'var(--primary-glow)' : 'rgba(138, 43, 226, 0.2)', 
-                  borderRadius: '6px 6px 0 0',
-                  border: i === 11 ? '1px solid var(--primary)' : '1px solid rgba(138, 43, 226, 0.3)',
-                  boxShadow: i === 11 ? '0 0 20px rgba(138, 43, 226, 0.4)' : 'none'
-                }}
-              />
-            </div>
+          {currentData.chartValues.map((h, i) => {
+            const monthIndex = months.indexOf(filterMonth);
+            const isCurrentMonth = i === monthIndex;
+            return (
+              <div key={i} style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end', position: 'relative' }}>
+                <motion.div 
+                  key={`${filterMonth}-${filterYear}-${i}`}
+                  initial={{ height: 0 }} 
+                  animate={{ height: isFiltering ? 0 : `${h}%` }} 
+                  style={{ 
+                    width: '100%',
+                    background: isCurrentMonth ? 'var(--primary-glow)' : 'rgba(138, 43, 226, 0.2)', 
+                    borderRadius: '6px 6px 0 0',
+                    border: isCurrentMonth ? '1px solid var(--primary)' : '1px solid rgba(138, 43, 226, 0.3)',
+                    boxShadow: isCurrentMonth ? '0 0 20px rgba(138, 43, 226, 0.4)' : 'none'
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 20px', color: 'var(--text-dim)', fontSize: '11px' }}>
+          {months.map((m, i) => (
+            <span key={i} style={{ flex: 1, textAlign: 'center' }}>{m.substring(0, 3)}</span>
           ))}
         </div>
       </div>
@@ -327,7 +348,7 @@ export default function FinancialView() {
             </tr>
           </thead>
           <tbody>
-            {transactions.map((t) => (
+            {filteredTransactions.map((t) => (
               <tr key={t.id} style={{ borderBottom: '1px solid var(--border-glass)' }}>
                 <td style={{ padding: '16px 24px', color: 'var(--text-dim)', fontSize: '11px' }}>#{t.id}</td>
                 <td style={{ padding: '16px 24px', fontWeight: 700 }}>{t.description}</td>
