@@ -50,7 +50,8 @@ export default function ProducaoView() {
   const [name, setName] = useState('');
   const [printer, setPrinter] = useState('');
   const [customer, setCustomer] = useState('');
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState('1');
+  const [quantityError, setQuantityError] = useState(false);
   
   const [jobs, setJobs] = useState<ProductionJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -172,10 +173,12 @@ export default function ProducaoView() {
 
     const selectedProduct = productsList.find(p => p.id === selectedProductId);
     
+    const qty = parseInt(quantity) || 1;
+    
     const jobData = {
       product_name: name,
       product_id: selectedProductId || null,
-      quantity: quantity,
+      quantity: qty,
       status: 'FILA' as ProductionStatus,
       progress: 0,
       printer_id: selectedPrinterId || null,
@@ -197,10 +200,11 @@ export default function ProducaoView() {
       });
 
     if (editingJob) {
+      const qty = parseInt(quantity) || 1;
       const { error } = await productionApi.update(editingJob.id, { 
         product_name: name, 
         product_id: selectedProductId || null,
-        quantity: quantity,
+        quantity: qty,
         printer_id: selectedPrinterId || null 
       });
       if (error) {
@@ -318,7 +322,7 @@ alert('Trabalho adicionado à fila!');
     setName('');
     setPrinter('');
     setCustomer('');
-    setQuantity(1);
+    setQuantity('1');
     setEditingJob(null);
     setSelectedPrinterId('');
     setSelectedClientId('');
@@ -537,11 +541,14 @@ alert('Trabalho adicionado à fila!');
                   <div style={{ position: 'relative' }}>
                     <Box size={16} style={iconOverlayStyle} />
                     <input 
-                      type="number"
+                      type="text"
                       inputMode="numeric"
-                      min="1" 
                       value={quantity} 
-                      onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                      onChange={e => {
+                        const val = e.target.value.replace(/[^0-9]/g, '');
+                        setQuantity(val);
+                        setQuantityError(false);
+                      }}
                       style={{ ...iconInputStyle, paddingLeft: '36px', MozAppearance: 'textfield' }}
                     />
                   </div>
