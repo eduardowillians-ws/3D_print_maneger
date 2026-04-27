@@ -42,6 +42,17 @@ export interface Product {
   created_at: string;
 }
 
+export interface ProductMaterial {
+  id: string;
+  product_id: string;
+  material_id: string;
+  material_name: string;
+  color: string | null;
+  weight_g: number;
+  slot_position: number;
+  created_at: string;
+}
+
 export interface Client {
   id: string;
   name: string;

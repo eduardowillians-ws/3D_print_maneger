@@ -50,6 +50,18 @@ CREATE TABLE IF NOT EXISTS public.products (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- Materiais por Produto (até 4 slots - definido na produção)
+CREATE TABLE IF NOT EXISTS public.product_materials (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+    material_id UUID NOT NULL REFERENCES public.materials(id) ON DELETE CASCADE,
+    material_name TEXT NOT NULL,
+    color TEXT,
+    weight_g INTEGER DEFAULT 0,
+    slot_position INTEGER DEFAULT 1,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- Clientes: CRM para gestão de contatos e histórico.
 CREATE TABLE IF NOT EXISTS public.clients (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -122,6 +134,7 @@ ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quotes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.production_jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.production_job_materials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_materials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow all for all" ON public.printers FOR ALL USING (true) WITH CHECK (true);
@@ -131,4 +144,5 @@ CREATE POLICY "Allow all for all" ON public.clients FOR ALL USING (true) WITH CH
 CREATE POLICY "Allow all for all" ON public.quotes FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for all" ON public.production_jobs FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for all" ON public.production_job_materials FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for all" ON public.product_materials FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for all" ON public.transactions FOR ALL USING (true) WITH CHECK (true);

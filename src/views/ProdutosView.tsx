@@ -13,11 +13,13 @@ import {
   UploadCloud,
   Percent,
   Trash2,
-  Loader2
+  Loader2,
+  Box
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
 import { productsApi } from '../services/api/products';
+import { materialsApi } from '../services/api/materials';
 
 export default function ProdutosView() {
   const { currency, measureSystem } = useSettings();
@@ -40,10 +42,33 @@ export default function ProdutosView() {
 
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [materialsList, setMaterialsList] = useState<any[]>([]);
+  
+  // Estado para materiais do produto (até 4 slots)
+  const [productMaterials, setProductMaterials] = useState<{ materialId: string; weight: number }[]>([
+    { materialId: '', weight: 0 },
+    { materialId: '', weight: 0 },
+    { materialId: '', weight: 0 },
+    { materialId: '', weight: 0 }
+  ]);
 
   useEffect(() => {
     loadProducts();
+    loadMaterials();
   }, []);
+
+  const loadMaterials = async () => {
+    const { data } = await materialsApi.getAll();
+    if (data) {
+      setMaterialsList(data.map(m => ({ 
+        id: m.id, 
+        name: m.name, 
+        type: m.type,
+        color: m.color || '',
+        weight_g: m.weight_g
+      })));
+    }
+  };
 
   const loadProducts = async () => {
     setIsLoading(true);
@@ -94,6 +119,8 @@ export default function ProdutosView() {
       suggested_price: priceValue
     };
 
+    let productId = editingProduct?.id;
+    
     if (editingProduct) {
       const { error } = await productsApi.update(editingProduct.id, productData);
       if (error) {
@@ -115,6 +142,7 @@ export default function ProdutosView() {
         return;
       }
       if (data) {
+        productId = data.id;
         const newProduct = {
           id: data.id,
           name: data.name,
@@ -125,6 +153,36 @@ export default function ProdutosView() {
           price: Number(data.suggested_price).toFixed(2).replace('.', ',')
         };
         setProducts(prev => [newProduct, ...prev]);
+      }
+    }
+
+    // Salvar materiais do produto
+    if (productId) {
+      // Primeiro deleta materiais existentes (para editar)
+      const { data: existingMaterials } = await productsApi.getMaterialsByProduct(productId);
+      if (existingMaterials && existingMaterials.length > 0) {
+        for (const m of existingMaterials) {
+          await productsApi.deleteMaterial(m.id);
+        }
+      }
+      
+      // Adiciona novos materiais
+      const materialsToAdd = productMaterials
+        .filter(m => m.materialId)
+        .map((m, idx) => {
+          const material = materialsList.find(mat => mat.id === m.materialId);
+          return {
+            product_id: productId,
+            material_id: m.materialId,
+            material_name: material?.name || '',
+            color: material?.color || null,
+            weight_g: m.weight,
+            slot_position: idx + 1
+          };
+        });
+      
+      for (const m of materialsToAdd) {
+        await productsApi.addMaterial(m);
       }
     }
 
@@ -152,9 +210,15 @@ export default function ProdutosView() {
     setMargin('100');
     setShowAddModal(false);
     setEditingProduct(null);
+    setProductMaterials([
+      { materialId: '', weight: 0 },
+      { materialId: '', weight: 0 },
+      { materialId: '', weight: 0 },
+      { materialId: '', weight: 0 }
+    ]);
   };
 
-  const startEdit = (p: any) => {
+  const startEdit = async (p: any) => {
     setEditingProduct(p);
     setName(p.name);
     const h = p.time.split('h')[0] || '0';
@@ -164,6 +228,23 @@ export default function ProdutosView() {
     setWeight(p.weight);
     setCost(p.cost.replace(',', '.'));
     setShowAddModal(true);
+    
+    // Carregar materiais do produto
+    const { data: prodMaterials } = await productsApi.getMaterialsByProduct(p.id);
+    if (prodMaterials && prodMaterials.length > 0) {
+      const newSlots = [
+        { materialId: '', weight: 0 },
+        { materialId: '', weight: 0 },
+        { materialId: '', weight: 0 },
+        { materialId: '', weight: 0 }
+      ];
+      prodMaterials.forEach((pm: any, idx: number) => {
+        if (idx < 4) {
+          newSlots[idx] = { materialId: pm.material_id, weight: pm.weight_g };
+        }
+      });
+      setProductMaterials(newSlots);
+    }
   };
 
   const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -285,9 +366,46 @@ export default function ProdutosView() {
                          <div style={{ ...iconOverlayStyle, color: 'var(--secondary)', fontWeight: 700 }}>{currencySymbol}</div>
                          <input type="text" value={`${suggestedPrice}`} readOnly style={{ ...iconInputStyle, color: 'var(--secondary)', fontWeight: 700, background: 'rgba(74, 225, 118, 0.03)', border: '1px solid rgba(74, 225, 118, 0.2)' }} />
                       </div>
-                   </div>
-                </div>
-                <button className="btn-primary" style={{ width: '100%', height: '54px' }} onClick={handleSave}>Salvar Produto</button>
+</div>
+                 </div>
+
+                 <div style={{ marginTop: '8px' }}>
+                   <label style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: '12px', display: 'block' }}>
+                     Materiais por Peça (até 4 slots - por unidade)
+                   </label>
+                   {productMaterials.map((slot, idx) => (
+                     <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                       <select 
+                         value={slot.materialId}
+                         onChange={e => {
+                           const newMaterials = [...productMaterials];
+                           newMaterials[idx].materialId = e.target.value;
+                           setProductMaterials(newMaterials);
+                         }}
+                         style={{ flex: 2, padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', color: 'white', fontSize: '13px' }}
+                       >
+                         <option value="">Slot {idx + 1} - Vazio</option>
+                         {materialsList.map(m => (
+                           <option key={m.id} value={m.id}>{m.name} {m.color ? `(${m.color})` : ''}</option>
+                         ))}
+                       </select>
+                       <input 
+                         type="number" 
+                         placeholder="g"
+                         value={slot.weight || ''}
+                         onChange={e => {
+                           const newMaterials = [...productMaterials];
+                           newMaterials[idx].weight = parseInt(e.target.value) || 0;
+                           setProductMaterials(newMaterials);
+                         }}
+                         style={{ flex: 1, padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', color: 'white', fontSize: '13px', textAlign: 'right' }}
+                       />
+                       <span style={{ fontSize: '11px', color: 'var(--text-dim)', width: '20px' }}>g</span>
+                     </div>
+                   ))}
+                 </div>
+
+                 <button className="btn-primary" style={{ width: '100%', height: '54px' }} onClick={handleSave}>Salvar Produto</button>
              </div>
           </Modal>
         )}

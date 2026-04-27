@@ -80,6 +80,17 @@ export default function ProducaoView() {
     loadMaterials();
   }, []);
 
+  // Recalcular materiais quando quantidade mudar (se houver produto selecionado)
+  useEffect(() => {
+    if (selectedProductId && jobMaterials.some(m => m.materialId)) {
+      const qty = parseInt(quantity) || 1;
+      setJobMaterials(prev => prev.map(m => ({
+        ...m,
+        weight: m.materialId ? m.weight : 0
+      })));
+    }
+  }, [quantity]);
+
   const loadClients = async () => {
     const { data } = await clientsApi.getAll();
     if (data) {
@@ -130,6 +141,11 @@ export default function ProducaoView() {
 
   const loadJobs = async () => {
     setIsLoading(true);
+    
+    // Carregar impressoras primeiro para ter a lista disponível
+    const { data: printersData } = await printersApi.getAll();
+    const printersMap = printersData || [];
+    
     const { data: jobsData, error } = await productionApi.getAll();
     const { data: productsData } = await productsApi.getAll();
     
@@ -149,10 +165,14 @@ export default function ProducaoView() {
         
         const remainingHours = estimatedHours - (calculatedProgress / 100 * estimatedHours);
         
+        const printerName = j.printer_id 
+          ? printersMap.find((p: any) => p.id === j.printer_id)?.name || 'Não atribuída' 
+          : 'Não atribuída';
+        
         return {
           id: j.id,
           name: j.product_name,
-          printer: j.printer_id ? printersList.find(p => p.id === j.printer_id)?.name || 'Não atribuída' : 'Não atribuída',
+          printer: printerName,
           material: 'PLA Standard',
           timeRemaining: j.status === 'IMPRIMINDO' ? `${Math.max(0, Math.floor(remainingHours))}h ${Math.round((remainingHours % 1) * 60)}m` : 'Pendente',
           progress: calculatedProgress,
@@ -453,21 +473,43 @@ alert('Trabalho adicionado à fila!');
                     <Layers size={16} style={iconOverlayStyle} />
                     <select 
                       value={isNewProduct ? '__new__' : selectedProductId} 
-                      onChange={e => {
+                      onChange={async e => {
                         if (e.target.value === '__new__') {
                           setName('');
                           setSelectedProductId('');
                           setIsNewProduct(true);
+                          setJobMaterials([
+                            { materialId: '', weight: 0 },
+                            { materialId: '', weight: 0 },
+                            { materialId: '', weight: 0 },
+                            { materialId: '', weight: 0 }
+                          ]);
                         } else {
                           setIsNewProduct(false);
-                          setSelectedProductId(e.target.value);
-                          const product = productsList.find(p => p.id === e.target.value);
+                          const productId = e.target.value;
+                          setSelectedProductId(productId);
+                          const product = productsList.find(p => p.id === productId);
                           setName(product?.name || '');
-                          // Auto-preencher peso do material baseado no produto
-                          if (product?.materialWeight && product.materialWeight > 0) {
+                          
+                          // Carregar materiais do produto e multiplicar pela quantidade
+                          const { data: prodMaterials } = await productsApi.getMaterialsByProduct(productId);
+                          const qty = parseInt(quantity) || 1;
+                          
+                          if (prodMaterials && prodMaterials.length > 0) {
+                            const newSlots = prodMaterials.map((pm: any) => ({
+                              materialId: pm.material_id,
+                              weight: (pm.weight_g || 0) * qty
+                            }));
+                            // Preencher slots restantes com vazio
+                            while (newSlots.length < 4) {
+                              newSlots.push({ materialId: '', weight: 0 });
+                            }
+                            setJobMaterials(newSlots);
+                          } else if (product?.materialWeight && product.materialWeight > 0) {
+                            // Fallback para peso único
                             setJobMaterials(prev => {
                               const newMaterials = [...prev];
-                              newMaterials[0] = { ...newMaterials[0], weight: product.materialWeight };
+                              newMaterials[0] = { ...newMaterials[0], weight: product.materialWeight * qty };
                               return newMaterials;
                             });
                           }

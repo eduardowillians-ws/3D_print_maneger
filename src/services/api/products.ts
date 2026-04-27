@@ -1,5 +1,6 @@
 import { baseQueries } from './baseQueries';
-import { Product, ApiResponse, ApiResponseSingle } from '../../types/database';
+import { Product, ProductMaterial, ApiResponse, ApiResponseSingle } from '../../types/database';
+import { supabase } from '../../lib/supabase';
 
 export const productsApi = {
   async getAll(): Promise<ApiResponse<Product>> {
@@ -47,6 +48,39 @@ export const productsApi = {
       avgTime: data.length ? Math.round(totalTime / data.length) : 0,
       avgPrice: data.length ? Number((totalPrice / data.length).toFixed(2)) : 0
     };
+  },
+
+  // Materials por produto
+  async getMaterialsByProduct(productId: string): Promise<ApiResponse<ProductMaterial>> {
+    const { data, error } = await supabase
+      .from('product_materials')
+      .select('*')
+      .eq('product_id', productId)
+      .order('slot_position', { ascending: true });
+    return { data, error };
+  },
+
+  async addMaterial(material: Partial<ProductMaterial>): Promise<ApiResponseSingle<ProductMaterial>> {
+    const { data, error } = await supabase
+      .from('product_materials')
+      .insert(material)
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  async updateMaterial(id: string, material: Partial<ProductMaterial>): Promise<ApiResponseSingle<ProductMaterial>> {
+    const { data, error } = await supabase
+      .from('product_materials')
+      .update(material)
+      .eq('id', id)
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  async deleteMaterial(id: string) {
+    return supabase.from('product_materials').delete().eq('id', id);
   }
 };
 
