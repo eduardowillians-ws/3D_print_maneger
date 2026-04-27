@@ -127,16 +127,23 @@ Este plano documenta a transição progressiva dos dados mockados (gerados inlin
 
 ---
 
-### Fase 2: Módulo Materiais (Simples)
+### Fase 2: Módulo Materiais (Simples) ✅ CONCLUÍDO
 **Objetivo**: Substituir dados mockados de materiais.
 
 **Mock atual**: Dados inline em `MateriaisView.tsx` (gerados aleatoriamente).
 
 **Etapas:**
 - [x] **2.1** - Criar `src/services/api/materials.ts` com funções específicas.
-- [ ] **2.2** - Modificar `MateriaisView.tsx` para usar dados da API.
-- [ ] **2.3** - Implementar operações de create/update/delete no modal de registro.
-- [ ] **2.4** - Testar filtros (PLA, PETG, ABS, etc).
+- [x] **2.2** - Modificar `MateriaisView.tsx` para usar dados da API.
+- [x] **2.3** - Implementar operações de create/update/delete no modal de registro.
+- [x] **2.4** - Testar filtros (PLA, PETG, ABS, etc).
+
+**Implementação:**
+- Dados reais do Supabase (tabela `materials`)
+- Loading state com spinner
+- Mapeamento de dados do banco para UI
+- CRUD completo via API
+- Busca/filtro por nome e fornecedor
 
 **Riscos**: Baixo - módulo isolado, sem dependências externas.
 **Estratégia de rollback**: Manter dados mock em variável local durante transição.

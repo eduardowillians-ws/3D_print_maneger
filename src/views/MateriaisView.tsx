@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Plus, 
   Search, 
@@ -13,13 +13,16 @@ import {
   DollarSign,
   Info,
   X,
-  Palette
+  Palette,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
+import { materialsApi } from '../services/api/materials';
+import { MaterialType } from '../types/database';
 
-interface Material {
-  id: number;
+interface MaterialUI {
+  id: string;
   type: string;
   brand: string;
   color: string;
@@ -34,7 +37,7 @@ export default function MateriaisView() {
   const { currency, measureSystem } = useSettings();
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
+  const [editingMaterial, setEditingMaterial] = useState<MaterialUI | null>(null);
 
   // Estados para o formulário
   const [type, setType] = useState('');
@@ -47,48 +50,102 @@ export default function MateriaisView() {
   const currencySymbol = currency.includes('BRL') ? 'R$' : currency.includes('USD') ? '$' : '€';
   const weightUnit = measureSystem.includes('Métrico') ? 'kg' : 'lb';
 
-  const [materials, setMaterials] = useState<Material[]>([
-    { id: 1, type: 'PLA Premium', brand: 'Esun', color: 'Branco Neve', stock: 2.4, minStock: 1.0, temp: '210°C', price: '120,00', status: 'Em Estoque' },
-    { id: 2, type: 'PETG Extreme', brand: '3DPrime', color: 'Azul Translúcido', stock: 0.8, minStock: 1.5, temp: '240°C', price: '145,00', status: 'Baixo Estoque' },
-    { id: 3, type: 'ABS Tech', brand: 'GTMax', color: 'Preto Carbono', stock: 0, minStock: 0.5, temp: '255°C', price: '95,00', status: 'Esgotado' },
-  ]);
+  const [materials, setMaterials] = useState<MaterialUI[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleSave = () => {
+  useEffect(() => {
+    loadMaterials();
+  }, []);
+
+  const loadMaterials = async () => {
+    setIsLoading(true);
+    const { data, error } = await materialsApi.getAll();
+    if (error) {
+      console.error('Erro ao carregar materiais:', error.message);
+      setIsLoading(false);
+      return;
+    }
+    
+    if (data) {
+      const mappedData: MaterialUI[] = data.map(m => ({
+        id: m.id,
+        type: m.name,
+        brand: m.supplier || 'Sem marca',
+        color: m.color || 'Sem cor',
+        stock: m.weight_g / 1000,
+        minStock: 0.5,
+        temp: `${m.type === 'PLA' ? 200 : m.type === 'PETG' ? 230 : 250}°C`,
+        price: m.price_per_kg.toFixed(2).replace('.', ','),
+        status: m.weight_g > 1000 ? 'Em Estoque' : m.weight_g > 0 ? 'Baixo Estoque' : 'Esgotado'
+      }));
+      setMaterials(mappedData);
+    }
+    setIsLoading(false);
+  };
+
+  const handleSave = async () => {
     if (!type || !brand || !color) {
       alert('Por favor, preencha os campos obrigatórios.');
       return;
     }
 
+    const stockValue = parseFloat(stock) || 0;
+    const materialData = {
+      name: type,
+      type: (type.toUpperCase().includes('PLA') ? 'PLA' : type.toUpperCase().includes('PETG') ? 'PETG' : type.toUpperCase().includes('ABS') ? 'ABS' : 'TPU') as MaterialType,
+      color: color,
+      supplier: brand,
+      weight_g: Math.round(stockValue * 1000),
+      price_per_kg: parseFloat(price.replace(',', '.')) || 0
+    };
+
     if (editingMaterial) {
+      const { error } = await materialsApi.update(editingMaterial.id, materialData);
+      if (error) {
+        alert('Erro ao atualizar material: ' + error.message);
+        return;
+      }
       setMaterials(prev => prev.map(m => m.id === editingMaterial.id ? {
-        ...m, type, brand, color, stock: parseFloat(stock), price
+        ...m, type, brand, color, stock: stockValue, price
       } : m));
     } else {
-      const newMaterial: Material = {
-        id: Date.now(),
-        type,
-        brand,
-        color,
-        stock: parseFloat(stock) || 0,
-        minStock: 1.0,
-        temp: '200°C',
-        price: price || '0,00',
-        status: parseFloat(stock) > 1.0 ? 'Em Estoque' : parseFloat(stock) > 0 ? 'Baixo Estoque' : 'Esgotado'
-      };
-      setMaterials([newMaterial, ...materials]);
+      const { data, error } = await materialsApi.create(materialData);
+      if (error) {
+        alert('Erro ao criar material: ' + error.message);
+        return;
+      }
+      if (data) {
+        const newMaterial: MaterialUI = {
+          id: data.id,
+          type: data.name,
+          brand: data.supplier || 'Sem marca',
+          color: data.color || 'Sem cor',
+          stock: data.weight_g / 1000,
+          minStock: 0.5,
+          temp: `${data.type === 'PLA' ? 200 : data.type === 'PETG' ? 230 : 250}°C`,
+          price: data.price_per_kg.toFixed(2).replace('.', ','),
+          status: data.weight_g > 1000 ? 'Em Estoque' : data.weight_g > 0 ? 'Baixo Estoque' : 'Esgotado'
+        };
+        setMaterials([newMaterial, ...materials]);
+      }
     }
     
     closeModal();
     alert('Informações salvas com sucesso!');
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja remover este material do estoque?')) {
+      const { error } = await materialsApi.delete(id);
+      if (error) {
+        alert('Erro ao excluir material: ' + error.message);
+        return;
+      }
       setMaterials(prev => prev.filter(m => m.id !== id));
     }
   };
 
-  const handleEdit = (m: Material) => {
+  const handleEdit = (m: MaterialUI) => {
     setEditingMaterial(m);
     setType(m.type);
     setBrand(m.brand);
@@ -138,16 +195,36 @@ export default function MateriaisView() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
         <AnimatePresence>
-          {filteredMaterials.map(material => (
-            <MaterialCard 
-              key={material.id} 
-              material={material} 
-              currencySymbol={currencySymbol} 
-              weightUnit={weightUnit} 
-              onDelete={() => handleDelete(material.id)}
-              onEdit={() => handleEdit(material)}
-            />
-          ))}
+          {isLoading ? (
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'center', padding: '60px', color: 'var(--text-muted)' }}
+            >
+              <Loader2 size={32} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
+              <span style={{ marginLeft: '12px' }}>Carregando materiais...</span>
+            </motion.div>
+          ) : filteredMaterials.length === 0 ? (
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}
+            >
+              <Layers size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
+              <p>Nenhum material encontrado</p>
+            </motion.div>
+          ) : (
+            filteredMaterials.map(material => (
+              <MaterialCard 
+                key={material.id} 
+                material={material} 
+                currencySymbol={currencySymbol} 
+                weightUnit={weightUnit} 
+                onDelete={() => handleDelete(material.id)}
+                onEdit={() => handleEdit(material)}
+              />
+            ))
+          )}
         </AnimatePresence>
       </div>
 
