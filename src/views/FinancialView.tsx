@@ -35,8 +35,11 @@ interface Transaction {
 
 export default function FinancialView() {
   const { currencySymbol } = useSettings();
-  const [filterMonth, setFilterMonth] = useState('Abril');
-  const [filterYear, setFilterYear] = useState('2024');
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().toLocaleString('pt-BR', { month: 'long' });
+  
+  const [filterMonth, setFilterMonth] = useState(currentMonth.charAt(0).toUpperCase() + currentMonth.slice(1));
+  const [filterYear, setFilterYear] = useState(currentYear.toString());
   const [filterCategory, setFilterCategory] = useState('Todas');
   const [isFiltering, setIsFiltering] = useState(false);
   const [activeActions, setActiveActions] = useState<string | null>(null);
@@ -54,19 +57,8 @@ export default function FinancialView() {
   // Estados para dropdowns customizados
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
-  // Dados mockados reativos
-  const getFinancialData = (month: string, year: string) => {
-    const seed = (month.length * 100) + (parseInt(year) % 10);
-    return {
-      receita: (12918 + seed).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-      custos: (4459 + (seed / 4)).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-      lucro: (8359 + (seed / 2)).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-      ticket: (1191 + (seed / 10)).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-      chartValues: [65 + (seed % 10), 45 + (seed % 5), 85 - (seed % 10), 55 + (seed % 15), 95 - (seed % 5), 75 + (seed % 10), 40, 80, 60, 90, 70, 85]
-    };
-  };
-
-  
+  const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString());
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -108,12 +100,37 @@ export default function FinancialView() {
   stats.lucro = stats.receita - stats.custos;
   stats.ticket = transactions.length > 0 ? stats.receita / transactions.filter(t => t.type === 'INCOME').length : 0;
 
+  const filteredTransactions = transactions.filter(t => {
+    const dateParts = t.date.split('/');
+    if (dateParts.length !== 3) return false;
+    const year = dateParts[2];
+    const monthIndex = months.indexOf(filterMonth);
+    const transMonth = new Date(`${dateParts[1]}/${dateParts[0]}/${dateParts[2]}`).getMonth();
+    return year === filterYear && transMonth === monthIndex;
+  });
+
+  const monthTransactions = months.map((_, monthIndex) => {
+    return transactions.filter(t => {
+      const dateParts = t.date.split('/');
+      if (dateParts.length !== 3) return false;
+      const transDate = new Date(`${dateParts[1]}/${dateParts[0]}/${dateParts[2]}`);
+      return transDate.getMonth() === monthIndex && transDate.getFullYear().toString() === filterYear;
+    });
+  });
+
+  const maxValue = Math.max(...monthTransactions.map(t => t.reduce((acc, tr) => acc + (tr.type === 'INCOME' ? tr.value : 0), 0)), 1);
+  
+  const chartValues = monthTransactions.map(t => {
+    const income = t.reduce((acc, tr) => acc + (tr.type === 'INCOME' ? tr.value : 0), 0);
+    return Math.round((income / maxValue) * 100);
+  });
+
   const currentData = {
     receita: stats.receita.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
     custos: stats.custos.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
     lucro: stats.lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
     ticket: stats.ticket.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-    chartValues: []
+    chartValues
   };
 
   const handleRefresh = () => {
@@ -258,8 +275,8 @@ export default function FinancialView() {
           
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
             {/* Custom Dropdowns */}
-            <CustomSelect label={filterMonth} options={['Abril', 'Março', 'Fevereiro']} isOpen={openDropdown === 'month'} onToggle={() => toggleDropdown('month')} onSelect={(val: string) => { setFilterMonth(val); setOpenDropdown(null); }} />
-            <CustomSelect label={filterYear} options={['2024', '2023']} isOpen={openDropdown === 'year'} onToggle={() => toggleDropdown('year')} onSelect={(val: string) => { setFilterYear(val); setOpenDropdown(null); }} />
+            <CustomSelect label={filterMonth} options={months} isOpen={openDropdown === 'month'} onToggle={() => toggleDropdown('month')} onSelect={(val: string) => { setFilterMonth(val); setOpenDropdown(null); }} />
+            <CustomSelect label={filterYear} options={years} isOpen={openDropdown === 'year'} onToggle={() => toggleDropdown('year')} onSelect={(val: string) => { setFilterYear(val); setOpenDropdown(null); }} />
             <CustomSelect label={filterCategory} options={['Todas', 'Vendas', 'Insumos', 'Manutenção']} isOpen={openDropdown === 'category'} onToggle={() => toggleDropdown('category')} onSelect={(val: string) => { setFilterCategory(val); setOpenDropdown(null); }} />
             
             <button onClick={handleRefresh} style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-glass)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
