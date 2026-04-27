@@ -56,7 +56,7 @@ export default function ClientsView() {
   const [status, setStatus] = useState<'ATIVO' | 'INATIVO' | 'SUSPENSO'>('ATIVO');
 
   const formatPhone = (value: string) => {
-    const numbers = value.replace(/\D/g, '');
+    const numbers = value.replace(/\D/g, '').slice(0, 11);
     if (numbers.length <= 10) {
       return numbers.replace(/(\d{2})(\d{4})/, '($1) $2');
     }
