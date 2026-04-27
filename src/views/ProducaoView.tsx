@@ -281,6 +281,7 @@ alert('Trabalho adicionado à fila!');
   };
 
   const resetForm = () => {
+    setShowAddModal(false);
     setName('');
     setPrinter('');
     setCustomer('');
