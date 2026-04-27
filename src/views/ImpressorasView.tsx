@@ -195,6 +195,28 @@ export default function ImpressorasView() {
     }
   };
 
+  const handleSetMaintenance = async (id: string) => {
+    const { error } = await printersApi.update(id, { status: 'MANUTENÇÃO' });
+    if (error) {
+      alert('Erro ao colocar em manutenção: ' + error.message);
+      return;
+    }
+    setPrinters(prev => prev.map(p => p.id === id ? { ...p, status: 'MANUTENCAO', alert: 'EM MANUTENÇÃO' } : p));
+    setActiveMenu(null);
+    alert('Impressora colocada em modo manutenção.');
+  };
+
+  const handleRemoveMaintenance = async (id: string) => {
+    const { error } = await printersApi.update(id, { status: 'OCIOSA' });
+    if (error) {
+      alert('Erro ao retirar de manutenção: ' + error.message);
+      return;
+    }
+    setPrinters(prev => prev.map(p => p.id === id ? { ...p, status: 'OCIOSA', alert: undefined } : p));
+    setActiveMenu(null);
+    alert('Impressora disponível novamente.');
+  };
+
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
       {/* Header */}
@@ -288,7 +310,7 @@ export default function ImpressorasView() {
                     <button style={cancelButtonStyle} onClick={() => handleCancelJob(printer.id)}>Cancelar</button>
                 )}
                 {printer.status === 'OCIOSA' && (
-                    <button style={startButtonStyle} onClick={() => alert('Selecione um arquivo da biblioteca...')}>Iniciar Trabalho</button>
+                    <button style={startButtonStyle} onClick={() => alert('Para iniciar um trabalho, vá ao módulo de Produção e atribua esta impressora ao job.')}>Iniciar Trabalho</button>
                 )}
                 {printer.status === 'MANUTENCAO' && (
                     <button style={resolveButtonStyle} onClick={() => alert('Limpando logs de erro...')}>Resolver</button>
@@ -302,6 +324,12 @@ export default function ImpressorasView() {
                         {activeMenu === printer.id && (
                             <motion.div initial={{ opacity: 0, scale: 0.9, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 10 }} style={dropdownStyle}>
                                 <div style={dropdownItemStyle} onClick={(e) => { e.stopPropagation(); openRename(printer); }}><Edit2 size={14} /> Renomear</div>
+                                {printer.status !== 'MANUTENCAO' && (
+                                  <div style={dropdownItemStyle} onClick={(e) => { e.stopPropagation(); handleSetMaintenance(printer.id); }}><Settings size={14} /> Colocar em Manutenção</div>
+                                )}
+                                {printer.status === 'MANUTENCAO' && (
+                                  <div style={{ ...dropdownItemStyle, color: 'var(--secondary)' }} onClick={(e) => { e.stopPropagation(); handleRemoveMaintenance(printer.id); }}><CheckCircle size={14} /> Retirar de Manutenção</div>
+                                )}
                                 <div style={{ ...dropdownItemStyle, color: 'var(--error)' }} onClick={(e) => { e.stopPropagation(); handleDelete(printer.id); }}><Trash2 size={14} /> Remover Máquina</div>
                             </motion.div>
                         )}

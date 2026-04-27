@@ -251,6 +251,19 @@ alert('Trabalho adicionado à fila!');
       return;
     }
 
+    // Atualizar status da impressora quando trabalho inicia/finaliza
+    const currentJob = jobs.find(j => j.id === id);
+    if (currentJob && currentJob.printer && currentJob.printer !== 'Não atribuída') {
+      const printersList = await printersApi.getAll();
+      const printer = printersList.data?.find(p => p.name === currentJob.printer);
+      if (printer) {
+        const newPrinterStatus = newStatus === 'IMPRIMINDO' ? 'IMPRIMINDO' : (newStatus === 'CONCLUIDO' || newStatus === 'ARQUIVADO' ? 'OCIOSA' : null);
+        if (newPrinterStatus) {
+          await printersApi.update(printer.id, { status: newPrinterStatus as any });
+        }
+      }
+    }
+
     setJobs(prev => prev.map(job => 
       job.id === id ? { 
         ...job, 
