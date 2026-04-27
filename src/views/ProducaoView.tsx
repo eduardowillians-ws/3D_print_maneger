@@ -194,7 +194,12 @@ export default function ProducaoView() {
           timeRemaining: j.status === 'IMPRIMINDO' ? `${Math.max(0, Math.floor(remainingHours))}h ${Math.round((remainingHours % 1) * 60)}m` : 'Pendente',
           progress: calculatedProgress,
           status: j.status === 'FILA' ? 'PENDENTE' : j.status === 'CONCLUIDO' ? 'CONCLUIDO' : j.status === 'ARQUIVADO' ? 'ARQUIVADO' : 'IMPRIMINDO',
-          customer: 'Cliente Avulso'
+          customer: 'Cliente Avulso',
+          quantity: j.quantity || 1,
+          quantity_good: j.quantity_good || 0,
+          quantity_bad: j.quantity_bad || 0,
+          quality_checked: j.quality_checked || false,
+          quality_notes: j.quality_notes || ''
         };
       });
       setJobs(mappedData);
@@ -835,15 +840,26 @@ function JobCard({ job, onMove, onDelete, onEdit, onQuality }: { job: Production
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '10px' }}>
+<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '10px' }}>
          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-           <PrinterIcon size={14} color="var(--primary)" />
-           <span style={{ fontSize: '11px', fontWeight: 600 }}>{job.printer}</span>
+            <PrinterIcon size={14} color="var(--primary)" />
+            <span style={{ fontSize: '11px', fontWeight: 600 }}>{job.printer}</span>
          </div>
          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
-           <Clock size={14} color="var(--text-dim)" />
-           <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{job.timeRemaining}</span>
+            <Clock size={14} color="var(--text-dim)" />
+            <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{job.timeRemaining}</span>
          </div>
+         {(job.quantity || 1) > 1 && (
+           <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+              <Box size={14} color="var(--accent-cyan)" />
+              <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-cyan)' }}>{job.quantity || 1} unidades</span>
+              {job.quality_checked && (
+                <span style={{ fontSize: '10px', color: 'var(--secondary)', marginLeft: '8px' }}>
+                  • {job.quantity_good || 0} boas • {job.quantity_bad || 0} ruins
+                </span>
+              )}
+           </div>
+         )}
       </div>
 
       {job.status === 'IMPRIMINDO' && (
