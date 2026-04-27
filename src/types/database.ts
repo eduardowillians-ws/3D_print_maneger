@@ -9,6 +9,11 @@ export interface Printer {
   target_fan: number;
   initial_hours: number;
   current_hours: number;
+  last_calibration?: string;
+  last_maintenance_date?: string;
+  maintenance_notes?: string;
+  total_jobs?: number;
+  failed_jobs?: number;
   created_at: string;
 }
 

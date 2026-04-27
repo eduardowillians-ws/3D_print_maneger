@@ -17,6 +17,11 @@ CREATE TABLE IF NOT EXISTS public.printers (
     target_fan INTEGER DEFAULT 100,
     initial_hours FLOAT DEFAULT 0,
     current_hours FLOAT DEFAULT 0,
+    last_calibration TIMESTAMP WITH TIME ZONE,
+    last_maintenance_date DATE,
+    maintenance_notes TEXT,
+    total_jobs INTEGER DEFAULT 0,
+    failed_jobs INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

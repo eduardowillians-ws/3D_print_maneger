@@ -257,9 +257,29 @@ alert('Trabalho adicionado à fila!');
       const printersList = await printersApi.getAll();
       const printer = printersList.data?.find(p => p.name === currentJob.printer);
       if (printer) {
+        const updates: any = {};
+        
+        // Atualizar status
         const newPrinterStatus = newStatus === 'IMPRIMINDO' ? 'IMPRIMINDO' : (newStatus === 'CONCLUIDO' || newStatus === 'ARQUIVADO' ? 'OCIOSA' : null);
         if (newPrinterStatus) {
-          await printersApi.update(printer.id, { status: newPrinterStatus as any });
+          updates.status = newPrinterStatus;
+        }
+        
+        // Ao iniciar impressão, adicionar horas estimadas do produto ao current_hours
+        if (newStatus === 'IMPRIMINDO') {
+          const selectedProduct = productsList.find(p => p.name === currentJob.name);
+          if (selectedProduct) {
+            updates.current_hours = (printer.current_hours || 0) + selectedProduct.printTime;
+          }
+        }
+        
+        // Ao concluir, incrementar total_jobs
+        if (newStatus === 'CONCLUIDO' || newStatus === 'ARQUIVADO') {
+          updates.total_jobs = (printer.total_jobs || 0) + 1;
+        }
+        
+        if (Object.keys(updates).length > 0) {
+          await printersApi.update(printer.id, updates);
         }
       }
     }

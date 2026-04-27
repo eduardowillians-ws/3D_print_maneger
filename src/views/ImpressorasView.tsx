@@ -144,9 +144,15 @@ export default function ImpressorasView() {
     }
   };
 
-  const handleCalibrate = (printer: Printer) => {
+  const handleCalibrate = async (printer: Printer) => {
     setActiveMenu(null);
     alert(`Iniciando calibração completa para ${printer.name}... Aguarde a confirmação da máquina.`);
+    
+    // Atualizar última calibração automaticamente
+    await printersApi.update(printer.id, { 
+      last_calibration: new Date().toISOString() 
+    } as any);
+    
     setTimeout(() => {
         alert('Calibração Niv. de Mesa e Input Shaper concluídos com sucesso!');
     }, 1500);
@@ -196,7 +202,11 @@ export default function ImpressorasView() {
   };
 
   const handleSetMaintenance = async (id: string) => {
-    const { error } = await printersApi.update(id, { status: 'MANUTENÇÃO' });
+    const today = new Date().toISOString().split('T')[0];
+    const { error } = await printersApi.update(id, { 
+      status: 'MANUTENÇÃO',
+      last_maintenance_date: today
+    } as any);
     if (error) {
       alert('Erro ao colocar em manutenção: ' + error.message);
       return;
@@ -214,7 +224,7 @@ export default function ImpressorasView() {
     }
     setPrinters(prev => prev.map(p => p.id === id ? { ...p, status: 'OCIOSA', alert: undefined } : p));
     setActiveMenu(null);
-    alert('Impressora disponível novamente.');
+    alert('Impressora disponível novamente. Data de manutenção registrada.');
   };
 
   return (
