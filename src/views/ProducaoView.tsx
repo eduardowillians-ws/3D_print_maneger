@@ -16,7 +16,12 @@ import {
   Layers,
   User,
   Loader2,
-  Package
+  Package,
+  FileText,
+  Download,
+  Eye,
+  Filter,
+  Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
@@ -26,6 +31,7 @@ import { printersApi } from '../services/api/printers';
 import { productsApi } from '../services/api/products';
 import { materialsApi } from '../services/api/materials';
 import { ProductionStatus } from '../types/database';
+import { downloadProductionPDF, previewProductionPDF } from '../utils/pdfGenerator';
 
 type JobStatus = 'PENDENTE' | 'IMPRIMINDO' | 'CONCLUIDO' | 'ARQUIVADO' | 'QUALIDADE';
 
@@ -43,6 +49,7 @@ interface ProductionJob {
   quantity_bad?: number;
   quality_checked?: boolean;
   quality_notes?: string;
+  created_at?: string;
 }
 
 export default function ProducaoView() {
@@ -69,6 +76,12 @@ export default function ProducaoView() {
   const [quantityGood, setQuantityGood] = useState('0');
   const [quantityBad, setQuantityBad] = useState('0');
   const [qualityNotes, setQualityNotes] = useState('');
+  
+  // Estado para relatórios
+  const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set());
+  const [filterMonth, setFilterMonth] = useState<string>('');
+  const [filterYear, setFilterYear] = useState<string>(new Date().getFullYear().toString());
+  const [showReportModal, setShowReportModal] = useState(false);
   
   const [jobs, setJobs] = useState<ProductionJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -199,7 +212,8 @@ export default function ProducaoView() {
           quantity_good: j.quantity_good || 0,
           quantity_bad: j.quantity_bad || 0,
           quality_checked: j.quality_checked || false,
-          quality_notes: j.quality_notes || ''
+          quality_notes: j.quality_notes || '',
+          created_at: j.created_at
         };
       });
       setJobs(mappedData);
@@ -485,30 +499,137 @@ alert('Trabalho adicionado à fila!');
             </>
           )}
         </div>
-      ) : (
+) : (
         <div className="glass-panel" style={{ padding: '32px', borderRadius: '24px' }}>
-           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
-              <Archive size={24} color="var(--primary)" />
-              <h3 style={{ fontSize: '18px', fontWeight: 700 }}>Histórico de Produção (Arquivados)</h3>
+           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                 <Archive size={24} color="var(--primary)" />
+                 <h3 style={{ fontSize: '18px', fontWeight: 700 }}>Histórico de Produção (Arquivados)</h3>
+              </div>
+              {selectedJobs.size > 0 && (
+                <button 
+                  className="btn-primary" 
+                  style={{ padding: '10px 20px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                  onClick={() => setShowReportModal(true)}
+                >
+                  <FileText size={16} /> Gerar Relatório ({selectedJobs.size})
+                </button>
+              )}
            </div>
+           
+           {/* Filtros */}
+           <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', padding: '16px', background: 'rgba(0,0,0,0.2)', borderRadius: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                 <Filter size={16} color="var(--text-dim)" />
+                 <select 
+                    value={filterMonth}
+                    onChange={e => setFilterMonth(e.target.value)}
+                    style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', color: 'white', fontSize: '13px' }}
+                 >
+                    <option value="">Todos os meses</option>
+                    <option value="1">Janeiro</option>
+                    <option value="2">Fevereiro</option>
+                    <option value="3">Março</option>
+                    <option value="4">Abril</option>
+                    <option value="5">Maio</option>
+                    <option value="6">Junho</option>
+                    <option value="7">Julho</option>
+                    <option value="8">Agosto</option>
+                    <option value="9">Setembro</option>
+                    <option value="10">Outubro</option>
+                    <option value="11">Novembro</option>
+                    <option value="12">Dezembro</option>
+                 </select>
+              </div>
+              <select 
+                 value={filterYear}
+                 onChange={e => setFilterYear(e.target.value)}
+                 style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', color: 'white', fontSize: '13px' }}
+              >
+                 {Array.from({length: 5}, (_, i) => new Date().getFullYear() - i).map(y => (
+                   <option key={y} value={y}>{y}</option>
+                 ))}
+              </select>
+              <button 
+                onClick={() => setSelectedJobs(new Set())}
+                style={{ padding: '8px 12px', background: 'transparent', border: '1px solid var(--border-glass)', borderRadius: '8px', color: 'var(--text-dim)', fontSize: '12px', cursor: 'pointer' }}
+              >
+                Limpar seleção
+              </button>
+           </div>
+           
            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-             {jobs.filter(j => j.status === 'ARQUIVADO').map(job => (
-               <div key={job.id} className="glass-panel" style={{ padding: '20px', borderRadius: '16px', background: 'rgba(255,255,255,0.02)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <p style={{ fontWeight: 700, fontSize: '14px' }}>{job.name}</p>
-                      <p style={{ fontSize: '11px', color: 'var(--text-dim)', marginTop: '4px' }}>{job.customer} • {job.printer}</p>
-                    </div>
-                    <button onClick={() => moveJob(job.id, 'CONCLUIDO')} style={{ background: 'var(--primary-glow)', border: '1px solid var(--primary)', color: 'white', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', cursor: 'pointer' }}>Restaurar</button>
-                  </div>
-               </div>
-             ))}
-             {jobs.filter(j => j.status === 'ARQUIVADO').length === 0 && (
-               <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '64px', color: 'var(--text-muted)' }}>
-                  <Archive size={48} style={{ opacity: 0.1, marginBottom: '16px' }} />
-                  <p>Nenhum item arquivado.</p>
-               </div>
-             )}
+              {(() => {
+                 const monthNames = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const filteredJobs = jobs.filter(j => {
+                   if (j.status !== 'ARQUIVADO') return false;
+                   const createdAt = j.created_at || '';
+                   if (!createdAt) return false;
+                   const jobDate = new Date(createdAt as string);
+                   if (filterYear && jobDate.getFullYear() !== parseInt(filterYear)) return false;
+                   if (filterMonth && jobDate.getMonth() + 1 !== parseInt(filterMonth)) return false;
+                   return true;
+                  });
+                 
+                 return filteredJobs.map(job => (
+                   <div 
+                    key={job.id} 
+                    className="glass-panel" 
+                    style={{ 
+                      padding: '20px', 
+                      borderRadius: '16px', 
+                      background: selectedJobs.has(job.id) ? 'rgba(139, 92, 246, 0.1)' : 'rgba(255,255,255,0.02)',
+                      border: selectedJobs.has(job.id) ? '1px solid var(--primary)' : '1px solid transparent',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => {
+                      const newSelected = new Set(selectedJobs);
+                      if (newSelected.has(job.id)) {
+                        newSelected.delete(job.id);
+                      } else {
+                        newSelected.add(job.id);
+                      }
+                      setSelectedJobs(newSelected);
+                    }}
+                   >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                           <div style={{ 
+                             width: '20px', 
+                             height: '20px', 
+                             borderRadius: '4px', 
+                             border: selectedJobs.has(job.id) ? 'none' : '2px solid var(--border-glass)',
+                             background: selectedJobs.has(job.id) ? 'var(--primary)' : 'transparent',
+                             display: 'flex',
+                             alignItems: 'center',
+                             justifyContent: 'center'
+                           }}>
+                             {selectedJobs.has(job.id) && <CheckCircle size={14} color="white" />}
+                           </div>
+                           <div>
+                             <p style={{ fontWeight: 700, fontSize: '14px' }}>{job.name}</p>
+                             <p style={{ fontSize: '11px', color: 'var(--text-dim)', marginTop: '4px' }}>
+                               {job.customer} • {job.printer}
+                               {(job.quantity || 1) > 1 && ` • ${job.quantity} un`}
+                             </p>
+                             {job.quality_checked && (
+                               <p style={{ fontSize: '10px', color: 'var(--secondary)', marginTop: '4px' }}>
+                                 ✓ Qualidade: {job.quantity_good || 0} boas / {job.quantity_bad || 0} ruins
+                               </p>
+                             )}
+                           </div>
+                        </div>
+                        <button onClick={(e) => { e.stopPropagation(); moveJob(job.id, 'CONCLUIDO'); }} style={{ background: 'var(--primary-glow)', border: '1px solid var(--primary)', color: 'white', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', cursor: 'pointer' }}>Restaurar</button>
+                      </div>
+                   </div>
+                 ));
+              })()}
+              {jobs.filter(j => j.status === 'ARQUIVADO').length === 0 && (
+                <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '64px', color: 'var(--text-muted)' }}>
+                   <Archive size={48} style={{ opacity: 0.1, marginBottom: '16px' }} />
+                   <p>Nenhum item arquivado.</p>
+                </div>
+              )}
            </div>
         </div>
       )}
@@ -810,6 +931,99 @@ alert('Trabalho adicionado à fila!');
               }}>
                 Salvar Qualidade
               </button>
+            </div>
+          </Modal>
+        )}
+      </AnimatePresence>
+
+      {/* Modal: Gerar Relatório */}
+      <AnimatePresence>
+        {showReportModal && (
+          <Modal title="Gerar Relatório de Produção" onClose={() => setShowReportModal(false)}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '12px' }}>
+                <p style={{ fontSize: '13px', color: 'var(--text-dim)', marginBottom: '8px' }}>Produções Selecionadas</p>
+                <p style={{ fontSize: '24px', fontWeight: 800, color: 'var(--primary)' }}>{selectedJobs.size} ordens</p>
+              </div>
+              
+              {(() => {
+                const selectedJobsList = jobs.filter(j => selectedJobs.has(j.id));
+                const totalUnits = selectedJobsList.reduce((acc, j) => acc + (j.quantity || 0), 0);
+                const goodUnits = selectedJobsList.reduce((acc, j) => acc + (j.quantity_good || 0), 0);
+                const badUnits = selectedJobsList.reduce((acc, j) => acc + (j.quantity_bad || 0), 0);
+                const efficiency = totalUnits > 0 ? Math.round((goodUnits / totalUnits) * 100) : 0;
+                
+                return (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                    <div style={{ textAlign: 'center', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                      <p style={{ fontSize: '11px', color: 'var(--text-dim)' }}>Peças</p>
+                      <p style={{ fontSize: '18px', fontWeight: 700 }}>{totalUnits}</p>
+                    </div>
+                    <div style={{ textAlign: 'center', padding: '12px', background: 'rgba(74, 225, 118, 0.1)', borderRadius: '8px' }}>
+                      <p style={{ fontSize: '11px', color: 'var(--secondary)' }}>Boas</p>
+                      <p style={{ fontSize: '18px', fontWeight: 700, color: 'var(--secondary)' }}>{goodUnits}</p>
+                    </div>
+                    <div style={{ textAlign: 'center', padding: '12px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px' }}>
+                      <p style={{ fontSize: '11px', color: 'var(--error)' }}>Ruins</p>
+                      <p style={{ fontSize: '18px', fontWeight: 700, color: 'var(--error)' }}>{badUnits}</p>
+                    </div>
+                  </div>
+                );
+              })()}
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <button 
+                  className="btn-primary" 
+                  style={{ height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'var(--primary)' }}
+                  onClick={() => {
+                    const selectedJobsList = jobs.filter(j => selectedJobs.has(j.id));
+                    const reportData = selectedJobsList.map(j => ({
+                      id: j.id,
+                      product_name: j.name,
+                      quantity: j.quantity || 1,
+                      quantity_good: j.quantity_good || 0,
+                      quantity_bad: j.quantity_bad || 0,
+                      quality_checked: j.quality_checked || false,
+                      quality_notes: j.quality_notes || '',
+                      target_hotend: 210,
+                      target_bed: 60,
+                      speed_percentage: 100,
+                      created_at: j.timeRemaining,
+                      end_time: null,
+                      printer_name: j.printer
+                    }));
+                    previewProductionPDF(reportData, filterMonth ? ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][parseInt(filterMonth)-1] : undefined, filterYear);
+                  }}
+                >
+                  <Eye size={18} /> Visualizar
+                </button>
+                <button 
+                  className="btn-primary" 
+                  style={{ height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'var(--secondary)' }}
+                  onClick={() => {
+                    const selectedJobsList = jobs.filter(j => selectedJobs.has(j.id));
+                    const reportData = selectedJobsList.map(j => ({
+                      id: j.id,
+                      product_name: j.name,
+                      quantity: j.quantity || 1,
+                      quantity_good: j.quantity_good || 0,
+                      quantity_bad: j.quantity_bad || 0,
+                      quality_checked: j.quality_checked || false,
+                      quality_notes: j.quality_notes || '',
+                      target_hotend: 210,
+                      target_bed: 60,
+                      speed_percentage: 100,
+                      created_at: j.timeRemaining,
+                      end_time: null,
+                      printer_name: j.printer
+                    }));
+                    downloadProductionPDF(reportData, filterMonth ? ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][parseInt(filterMonth)-1] : undefined, filterYear);
+                    setShowReportModal(false);
+                  }}
+                >
+                  <Download size={18} /> Baixar PDF
+                </button>
+              </div>
             </div>
           </Modal>
         )}
