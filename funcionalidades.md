@@ -242,17 +242,23 @@ Este plano documenta a transição progressiva dos dados mockados (gerados inlin
 
 ---
 
-### Fase 7: Módulo Produção (Kanban)
+### Fase 7: Módulo Produção (Kanban) ✅ CONCLUÍDO
 **Objetivo**: Migrar quadro Kanban para dados reais.
 
 **Mock atual**: Dados gerados em `ProducaoView.tsx`.
 
 **Etapas:**
-- [ ] **7.1** - Criar `src/services/api/production.ts`.
-- [ ] **7.2** - Conectar `ProducaoView.tsx` ao Kanban.
-- [ ] **7.3** - Implementar arrastar entre colunas (status update).
+- [x] **7.1** - Criar `src/services/api/production.ts`.
+- [x] **7.2** - Conectar `ProducaoView.tsx` ao Kanban.
+- [x] **7.3** - Implementar arrastar entre colunas (status update).
 - [ ] **7.4** - Adicionar link com `printer_id` (impressora atribuída).
-- [ ] **7.5** - Implementar arquivamento e histórico.
+- [x] **7.5** - Implementar arquivamento e histórico.
+
+**Implementação:**
+- Dados reais do Supabase (tabela `production_jobs`)
+- CRUD completo (create, update, delete)
+- Movimentação entre colunas via API
+- Loading state com spinner
 
 **Riscos**: Alto - múltiplas dependências (printers, products, clients).
 **Estratégia de rollback**: Sincronização manual temporária.
