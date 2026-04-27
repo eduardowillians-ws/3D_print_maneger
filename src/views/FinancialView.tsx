@@ -612,6 +612,104 @@ const currentMonthIndexForHighlight = filterMonth === 'Todos'
 }
 
 function FinancialPreviewPDF({ transactions, stats, filterMonth, filterYear, currencySymbol, onClose }: any) {
+  const handleDownloadPDF = () => {
+    const printContent = document.getElementById('pdf-content');
+    if (!printContent) return;
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Relatório Financeiro - PrintPulse 3D</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #1a1a1a; }
+            .header { text-align: center; margin-bottom: 32px; border-bottom: 2px solid #8a2be2; padding-bottom: 24px; }
+            .header h1 { font-size: 28px; color: #8a2be2; font-weight: 800; margin-bottom: 8px; }
+            .header p { font-size: 16px; color: #666; }
+            .header .period { font-size: 14px; color: #888; margin-top: 4px; }
+            .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+            .kpi { padding: 16px; background: #f8f8f8; border-radius: 12px; text-align: center; }
+            .kpi-label { font-size: 12px; color: #888; margin-bottom: 4px; }
+            .kpi-value { font-size: 20px; font-weight: 700; }
+            .kpi-value.green { color: #22c55e; }
+            .kpi-value.red { color: #ef4444; }
+            table { width: 100%; border-collapse: collapse; font-size: 13px; }
+            thead { background: #8a2be2; color: white; }
+            th { padding: 12px; text-align: left; }
+            td { padding: 12px; border-bottom: 1px solid #eee; }
+            .type-income { color: #22c55e; }
+            .type-expense { color: #ef4444; }
+            .status-concluido { background: #dcfce7; color: #16a34a; padding: 4px 8px; border-radius: 4px; font-size: 11px; }
+            .status-pendente { background: #fef3c7; color: #d97706; padding: 4px 8px; border-radius: 4px; font-size: 11px; }
+            @media print { body { padding: 20px; } }
+          </style>
+        </head>
+        <body>
+          <div id="pdf-content">
+            <div class="header">
+              <h1>PRINTPULSE 3D</h1>
+              <p>Relatório Financeiro</p>
+              <p class="period">${filterMonth} de ${filterYear}</p>
+            </div>
+            <div class="kpis">
+              <div class="kpi">
+                <div class="kpi-label">RECEITA</div>
+                <div class="kpi-value green">${currencySymbol} ${stats.receita.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-label">CUSTOS</div>
+                <div class="kpi-value red">${currencySymbol} ${stats.custos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-label">LUCRO</div>
+                <div class="kpi-value ${stats.lucro >= 0 ? 'green' : 'red'}">${currencySymbol} ${stats.lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-label">TRANSAÇÕES</div>
+                <div class="kpi-value">${transactions.length}</div>
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Descrição</th>
+                  <th>Categoria</th>
+                  <th style="text-align: right">Tipo</th>
+                  <th style="text-align: right">Valor</th>
+                  <th style="text-align: center">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${transactions.map((t: any) => `
+                  <tr>
+                    <td>${t.date}</td>
+                    <td>${t.description}</td>
+                    <td>${t.category}</td>
+                    <td style="text-align: right" class="${t.type === 'INCOME' ? 'type-income' : 'type-expense'}">${t.type === 'INCOME' ? 'Entrada' : 'Saída'}</td>
+                    <td style="text-align: right; font-weight: 600">${currencySymbol} ${t.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                    <td style="text-align: center"><span class="${t.status === 'CONCLUÍDO' ? 'status-concluido' : 'status-pendente'}">${t.status}</span></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+              window.close();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   return (
     <div style={modalOverlayStyle} onClick={onClose}>
       <motion.div 
@@ -628,9 +726,9 @@ function FinancialPreviewPDF({ transactions, stats, filterMonth, filterYear, cur
           </button>
         </div>
         
-        <div style={{ padding: '32px', background: '#fff', color: '#1a1a1a', minHeight: '600px' }}>
-          <div style={{ textAlign: 'center', marginBottom: '32px', borderBottom: '2px solid var(--primary)', paddingBottom: '24px' }}>
-            <h1 style={{ fontSize: '28px', color: 'var(--primary)', fontWeight: 800, marginBottom: '8px' }}>PRINTPULSE 3D</h1>
+        <div id="pdf-content" style={{ padding: '32px', background: '#fff', color: '#1a1a1a', minHeight: '600px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '32px', borderBottom: '2px solid #8a2be2', paddingBottom: '24px' }}>
+            <h1 style={{ fontSize: '28px', color: '#8a2be2', fontWeight: 800, marginBottom: '8px' }}>PRINTPULSE 3D</h1>
             <p style={{ fontSize: '16px', color: '#666' }}>Relatório Financeiro</p>
             <p style={{ fontSize: '14px', color: '#888', marginTop: '4px' }}>{filterMonth} de {filterYear}</p>
           </div>
@@ -656,7 +754,7 @@ function FinancialPreviewPDF({ transactions, stats, filterMonth, filterYear, cur
 
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead>
-              <tr style={{ background: 'var(--primary)', color: 'white' }}>
+              <tr style={{ background: '#8a2be2', color: 'white' }}>
                 <th style={{ padding: '12px', textAlign: 'left' }}>Data</th>
                 <th style={{ padding: '12px', textAlign: 'left' }}>Descrição</th>
                 <th style={{ padding: '12px', textAlign: 'left' }}>Categoria</th>
@@ -686,7 +784,7 @@ function FinancialPreviewPDF({ transactions, stats, filterMonth, filterYear, cur
           <button onClick={onClose} style={{ padding: '12px 24px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', borderRadius: '10px', color: 'white', cursor: 'pointer', fontSize: '14px' }}>
             Cancelar
           </button>
-          <button style={{ padding: '12px 24px', background: 'var(--primary)', border: 'none', borderRadius: '10px', color: 'white', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}>
+          <button onClick={handleDownloadPDF} style={{ padding: '12px 24px', background: 'var(--primary)', border: 'none', borderRadius: '10px', color: 'white', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}>
             Baixar PDF
           </button>
         </div>
