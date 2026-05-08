@@ -3,7 +3,7 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import { supabase } from './lib/supabase';
 import { Session } from '@supabase/supabase-js';
-
+import { AuthProvider } from './contexts/AuthContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 
 function App() {
@@ -22,15 +22,17 @@ function App() {
   }, []);
 
   return (
-    <SettingsProvider>
-      <div className="app-container">
-        {!session ? (
-          <Login />
-        ) : (
-          <Dashboard />
-        )}
-      </div>
-    </SettingsProvider>
+    <AuthProvider>
+      <SettingsProvider>
+        <div className="app-container">
+          {!session ? (
+            <Login />
+          ) : (
+            <Dashboard />
+          )}
+        </div>
+      </SettingsProvider>
+    </AuthProvider>
   );
 }
 

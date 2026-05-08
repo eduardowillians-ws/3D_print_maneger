@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 
 interface UserProfile {
   name: string;
@@ -25,6 +26,7 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user: authUser } = useAuth();
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     return (localStorage.getItem('printpulse_theme') as 'dark' | 'light') || 'dark';
   });
@@ -37,13 +39,28 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [user, setUser] = useState<UserProfile>(() => {
     const savedUser = localStorage.getItem('printpulse_user');
     return savedUser ? JSON.parse(savedUser) : {
-      name: 'Alex',
-      lastName: 'Chen',
-      email: 'alex.chen@forgeos.lab',
-      role: 'Administrador do Laboratório',
-      photo: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex'
+      name: 'Usuário',
+      lastName: '',
+      email: '',
+      role: 'Operador',
+      photo: ''
     };
   });
+
+  useEffect(() => {
+    if (authUser) {
+      const emailName = authUser.email?.split('@')[0] || 'Usuário';
+      const displayName = emailName.split('.').map(n => n.charAt(0).toUpperCase() + n.slice(1)).join(' ');
+      const [firstName, ...rest] = displayName.split(' ');
+      setUser(prev => ({
+        ...prev,
+        name: firstName,
+        lastName: rest.join(' '),
+        email: authUser.email || '',
+        photo: `https://api.dicebear.com/7.x/avataaars/svg?seed=${emailName}`
+      }));
+    }
+  }, [authUser]);
 
   const currencySymbol = currency.includes('BRL') ? 'R$' : currency.includes('USD') ? '$' : '€';
   const weightUnit = measureSystem.includes('Métrico') ? 'g' : 'oz';
@@ -57,7 +74,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     document.body.className = theme === 'dark' ? 'dark-theme' : 'light-theme';
-    saveSettings(); // Auto-save ao mudar
+    saveSettings();
   }, [theme, currency, measureSystem, user]);
 
   const value = {
