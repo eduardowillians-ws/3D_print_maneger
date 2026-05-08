@@ -31,6 +31,11 @@ interface MaterialUI {
   temp: string;
   price: string;
   status: string;
+  tempExtrusionFI?: string;
+  tempExtrusionFS?: string;
+  tempBedFI?: string;
+  tempBedFS?: string;
+  thickness?: string;
 }
 
 export default function MateriaisView() {
@@ -45,6 +50,11 @@ export default function MateriaisView() {
   const [color, setColor] = useState('');
   const [stock, setStock] = useState('');
   const [price, setPrice] = useState('');
+  const [tempExtrusionFI, setTempExtrusionFI] = useState('230');
+  const [tempExtrusionFS, setTempExtrusionFS] = useState('260');
+  const [tempBedFI, setTempBedFI] = useState('70');
+  const [tempBedFS, setTempBedFS] = useState('80');
+  const [thickness, setThickness] = useState('1,75');
 
   // Símbolos dinâmicos
   const currencySymbol = currency.includes('BRL') ? 'R$' : currency.includes('USD') ? '$' : '€';
@@ -74,9 +84,14 @@ export default function MateriaisView() {
         color: m.color || 'Sem cor',
         stock: m.weight_g / 1000,
         minStock: 0.5,
-        temp: `${m.type === 'PLA' ? 200 : m.type === 'PETG' ? 230 : 250}°C`,
+        temp: `${m.temp_extrusion_fi || 200}°C a ${m.temp_extrusion_fs || 250}°C`,
         price: m.price_per_kg.toFixed(2).replace('.', ','),
-        status: m.weight_g > 1000 ? 'Em Estoque' : m.weight_g > 0 ? 'Baixo Estoque' : 'Esgotado'
+        status: m.weight_g > 1000 ? 'Em Estoque' : m.weight_g > 0 ? 'Baixo Estoque' : 'Esgotado',
+        tempExtrusionFI: (m.temp_extrusion_fi || 200).toString(),
+        tempExtrusionFS: (m.temp_extrusion_fs || 250).toString(),
+        tempBedFI: (m.temp_bed_fi || 60).toString(),
+        tempBedFS: (m.temp_bed_fs || 80).toString(),
+        thickness: m.thickness || '1,75'
       }));
       setMaterials(mappedData);
     }
@@ -96,7 +111,12 @@ export default function MateriaisView() {
       color: color,
       supplier: brand,
       weight_g: Math.round(stockValue * 1000),
-      price_per_kg: parseFloat(price.replace(',', '.')) || 0
+      price_per_kg: parseFloat(price.replace(',', '.')) || 0,
+      temp_extrusion_fi: parseInt(tempExtrusionFI),
+      temp_extrusion_fs: parseInt(tempExtrusionFS),
+      temp_bed_fi: parseInt(tempBedFI),
+      temp_bed_fs: parseInt(tempBedFS),
+      thickness: thickness.replace(',', '.')
     };
 
     if (editingMaterial) {
@@ -152,6 +172,11 @@ export default function MateriaisView() {
     setColor(m.color);
     setStock(m.stock.toString());
     setPrice(m.price);
+    setTempExtrusionFI(m.tempExtrusionFI || '230');
+    setTempExtrusionFS(m.tempExtrusionFS || '260');
+    setTempBedFI(m.tempBedFI || '70');
+    setTempBedFS(m.tempBedFS || '80');
+    setThickness(m.thickness || '1,75');
     setShowAddModal(true);
   };
 
@@ -163,6 +188,11 @@ export default function MateriaisView() {
     setColor('');
     setStock('');
     setPrice('');
+    setTempExtrusionFI('230');
+    setTempExtrusionFS('260');
+    setTempBedFI('70');
+    setTempBedFS('80');
+    setThickness('1,75');
   };
 
   const filteredMaterials = materials.filter(m => 
@@ -258,6 +288,34 @@ export default function MateriaisView() {
                   <label>Cor</label>
                   <input type="text" placeholder="Ex: Preto Carbono..." value={color} onChange={e => setColor(e.target.value)} style={inputStyle} />
                 </div>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="input-group">
+                    <label>Extrusão FI (°C)</label>
+                    <input type="number" placeholder="230" value={tempExtrusionFI} onChange={e => setTempExtrusionFI(e.target.value)} style={inputStyle} />
+                  </div>
+                  <div className="input-group">
+                    <label>Extrusão FS (°C)</label>
+                    <input type="number" placeholder="260" value={tempExtrusionFS} onChange={e => setTempExtrusionFS(e.target.value)} style={inputStyle} />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="input-group">
+                    <label>Mesa FI (°C)</label>
+                    <input type="number" placeholder="70" value={tempBedFI} onChange={e => setTempBedFI(e.target.value)} style={inputStyle} />
+                  </div>
+                  <div className="input-group">
+                    <label>Mesa FS (°C)</label>
+                    <input type="number" placeholder="80" value={tempBedFS} onChange={e => setTempBedFS(e.target.value)} style={inputStyle} />
+                  </div>
+                </div>
+
+                <div className="input-group">
+                  <label>Espessura (mm)</label>
+                  <input type="text" placeholder="1,75" value={thickness} onChange={e => setThickness(e.target.value)} style={inputStyle} />
+                </div>
+                
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div className="input-group">
                     <label>Estoque ({weightUnit})</label>
@@ -287,12 +345,46 @@ function MaterialCard({ material, currencySymbol, weightUnit, onDelete, onEdit }
     return 'var(--error)';
   };
 
+  const getColorHex = (colorName: string): string => {
+    const colorMap: Record<string, string> = {
+      'preto': '#1a1a1a',
+      'preto carbon': '#1a1a1a',
+      'branco': '#f5f5f5',
+      'branco neve': '#f5f5f5',
+      'vermelho': '#dc2626',
+      'vermelho rubi': '#dc2626',
+      'azul': '#3b82f6',
+      'azul royal': '#3b82f6',
+      'verde': '#22c55e',
+      'amarelo': '#eab308',
+      'laranja': '#f97316',
+      'rosa': '#ec4899',
+      'roxo': '#a855f7',
+      'cinza': '#6b7280',
+      'prata': '#9ca3af',
+      'ouro': '#f59e0b',
+      'transparente': '#94a3b8',
+      'natural': '#d4d4d8',
+      'bege': '#d4b896'
+    };
+    const key = colorName.toLowerCase().trim();
+    for (const [colorKey, hexValue] of Object.entries(colorMap)) {
+      if (key.includes(colorKey)) {
+        return hexValue;
+      }
+    }
+    return '#6366f1';
+  };
+
+  const materialColor = getColorHex(material.color);
+
   return (
     <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} className="glass-panel" style={{ padding: '24px', borderRadius: '24px', border: `1px solid ${getStatusColor(material.status)}22` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-           <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: material.color.toLowerCase().includes('branco') ? 'white' : material.color.toLowerCase().includes('azul') ? '#22d3ee' : material.color.toLowerCase().includes('preto') ? '#111' : 'var(--primary)', border: '1px solid rgba(255,255,255,0.1)' }}></div>
-           <span style={{ fontSize: '15px', fontWeight: 700 }}>{material.type}</span>
+            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: materialColor, border: materialColor === '#1a1a1a' ? '1px solid #444' : '1px solid rgba(255,255,255,0.2)' }}></div>
+            <span style={{ fontSize: '15px', fontWeight: 700 }}>{material.type}</span>
+            <span style={{ fontSize: '12px', color: 'var(--text-dim)', fontWeight: 500, marginLeft: '4px' }}>• {material.color}</span>
         </div>
         <span style={{ fontSize: '10px', fontWeight: 800, padding: '4px 10px', borderRadius: '20px', background: `${getStatusColor(material.status)}11`, color: getStatusColor(material.status) }}>
           {material.status.toUpperCase()}

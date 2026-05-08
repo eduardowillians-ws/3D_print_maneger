@@ -7,6 +7,7 @@ export interface Printer {
   target_hotend: number;
   target_bed: number;
   target_fan: number;
+  volume?: string;
   initial_hours: number;
   current_hours: number;
   last_calibration?: string;
@@ -27,6 +28,11 @@ export interface Material {
   weight_g: number;
   supplier: string | null;
   price_per_kg: number;
+  temp_extrusion_fi?: number;
+  temp_extrusion_fs?: number;
+  temp_bed_fi?: number;
+  temp_bed_fs?: number;
+  thickness?: string;
   created_at: string;
 }
 
@@ -68,8 +74,11 @@ export type QuoteStatus = 'PENDENTE' | 'APROVADO' | 'REJEITADO' | 'PAGO';
 export interface Quote {
   id: string;
   client_id: string | null;
+  product_id: string | null;
   description: string;
   total_value: number;
+  quantity: number;
+  unit_price: number;
   status: QuoteStatus;
   expiry_date: string | null;
   created_at: string;

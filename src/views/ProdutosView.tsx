@@ -340,7 +340,7 @@ export default function ProdutosView() {
                       <label>Peso ({weightUnit})</label>
                       <div style={{ position: 'relative' }}>
                          <Layers size={16} style={iconOverlayStyle} />
-                         <input type="number" placeholder="250" value={weight} onChange={(e) => setWeight(e.target.value)} style={iconInputStyle} />
+                         <input type="number" placeholder="250" value={weight} onChange={(e) => setWeight(e.target.value)} style={iconInputStyle} min="0" step="0.1" />
                       </div>
                    </div>
                 </div>
@@ -353,13 +353,13 @@ export default function ProdutosView() {
                          <input type="text" value={cost} onChange={(e) => setCost(e.target.value)} style={iconInputStyle} />
                       </div>
                    </div>
-                   <div className="input-group">
-                      <label>Margem (%)</label>
-                      <div style={{ position: 'relative' }}>
-                         <Percent size={16} style={iconOverlayStyle} />
-                         <input type="number" value={margin} onChange={(e) => setMargin(e.target.value)} style={iconInputStyle} />
-                      </div>
-                   </div>
+<div className="input-group">
+                       <label>Margem (%)</label>
+                       <div style={{ position: 'relative' }}>
+                          <Percent size={16} style={iconOverlayStyle} />
+                          <input type="number" value={margin} onChange={(e) => setMargin(e.target.value)} style={iconInputStyle} min="0" step="0.1" />
+                       </div>
+                    </div>
                    <div className="input-group">
                       <label>Preço Sugerido</label>
                       <div style={{ position: 'relative' }}>
@@ -384,22 +384,24 @@ export default function ProdutosView() {
                          }}
                          style={{ flex: 2, padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', color: 'white', fontSize: '13px' }}
                        >
-                         <option value="">Slot {idx + 1} - Vazio</option>
-                         {materialsList.map(m => (
-                           <option key={m.id} value={m.id}>{m.name} {m.color ? `(${m.color})` : ''}</option>
-                         ))}
+<option value="" style={{ color: '#888' }}>Slot {idx + 1} - Vazio</option>
+                          {materialsList.map(m => (
+                            <option key={m.id} value={m.id} style={{ color: '#fff', background: '#0a0a0a' }}>{m.name} {m.color ? `(${m.color})` : ''}</option>
+                          ))}
                        </select>
-                       <input 
-                         type="number" 
-                         placeholder="g"
-                         value={slot.weight || ''}
-                         onChange={e => {
-                           const newMaterials = [...productMaterials];
-                           newMaterials[idx].weight = parseInt(e.target.value) || 0;
-                           setProductMaterials(newMaterials);
-                         }}
-                         style={{ flex: 1, padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', color: 'white', fontSize: '13px', textAlign: 'right' }}
-                       />
+<input 
+                          type="number" 
+                          placeholder="g"
+                          value={slot.weight || ''}
+                          onChange={e => {
+                            const newMaterials = [...productMaterials];
+                            newMaterials[idx].weight = parseFloat(e.target.value) || 0;
+                            setProductMaterials(newMaterials);
+                          }}
+                          style={{ flex: 1, padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', color: 'white', fontSize: '13px', textAlign: 'right' }}
+                          min="0"
+                          step="0.1"
+                        />
                        <span style={{ fontSize: '11px', color: 'var(--text-dim)', width: '20px' }}>g</span>
                      </div>
                    ))}

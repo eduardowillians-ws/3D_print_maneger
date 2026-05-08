@@ -35,6 +35,7 @@ interface Printer {
   targetHotend: string;
   targetBed: string;
   targetFan: string;
+  volume?: string;
 }
 
 export default function ImpressorasView() {
@@ -51,6 +52,7 @@ export default function ImpressorasView() {
   const [hotend, setHotend] = useState('210');
   const [bed, setBed] = useState('60');
   const [fan, setFan] = useState('100');
+  const [volume, setVolume] = useState('256mm*256mm*256mm');
   const [initialHours, setInitialHours] = useState('0');
 
   const [printers, setPrinters] = useState<Printer[]>([]);
@@ -78,7 +80,8 @@ export default function ImpressorasView() {
         hours: `${p.current_hours.toFixed(0)} h`,
         targetHotend: p.target_hotend.toString(),
         targetBed: p.target_bed.toString(),
-        targetFan: p.target_fan.toString()
+        targetFan: p.target_fan.toString(),
+        volume: p.volume || ''
       }));
       setPrinters(mappedData);
     }
@@ -97,6 +100,7 @@ export default function ImpressorasView() {
       target_hotend: parseInt(hotend),
       target_bed: parseInt(bed),
       target_fan: parseInt(fan),
+      volume: volume,
       initial_hours: parseFloat(initialHours),
       current_hours: parseFloat(initialHours)
     };
@@ -132,6 +136,7 @@ export default function ImpressorasView() {
     setHotend('210');
     setBed('60');
     setFan('100');
+    setVolume('256mm*256mm*256mm');
     setInitialHours('0');
   };
 
@@ -369,19 +374,19 @@ export default function ImpressorasView() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div className="input-group">
-                        <label>Temp. Bico (°C)</label>
+                        <label>Temp. Hotend (máx °C)</label>
                         <input type="number" value={hotend} onChange={e => setHotend(e.target.value)} style={inputStyle} />
                     </div>
                     <div className="input-group">
-                        <label>Temp. Mesa (°C)</label>
+                        <label>Temp. Mesa (máx °C)</label>
                         <input type="number" value={bed} onChange={e => setBed(e.target.value)} style={inputStyle} />
                     </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div className="input-group">
-                        <label>Ventoinha (%)</label>
-                        <input type="number" value={fan} onChange={e => setFan(e.target.value)} style={inputStyle} />
+                        <label>Volume de Montagem</label>
+                        <input type="text" value={volume} onChange={e => setVolume(e.target.value)} placeholder="Ex: 256mm*256mm*256mm" style={inputStyle} />
                     </div>
                     <div className="input-group">
                         <label>Horas Iniciais</label>

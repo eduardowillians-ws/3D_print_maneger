@@ -15,12 +15,14 @@ import {
   Trash2,
   Download,
   MoreHorizontal,
-  Loader2
+  Loader2,
+  Package
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
 import { quotesApi } from '../services/api/quotes';
 import { clientsApi } from '../services/api/clients';
+import { productsApi } from '../services/api/products';
 
 export default function OrcamentosView() {
   const { currencySymbol } = useSettings();
@@ -42,16 +44,26 @@ export default function OrcamentosView() {
   const [isLoading, setIsLoading] = useState(true);
   const [clientsList, setClientsList] = useState<any[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [productsList, setProductsList] = useState<any[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState<string>('');
 
   useEffect(() => {
     loadQuotes();
     loadClients();
+    loadProducts();
   }, []);
 
   const loadClients = async () => {
     const { data } = await clientsApi.getAll();
     if (data) {
       setClientsList(data);
+    }
+  };
+
+  const loadProducts = async () => {
+    const { data } = await productsApi.getAll();
+    if (data) {
+      setProductsList(data);
     }
   };
 
@@ -65,17 +77,24 @@ export default function OrcamentosView() {
     }
     
     if (data) {
-      const mappedData = data.map(q => ({
-        id: q.id,
-        client: q.description.split('-')[0] || 'Cliente',
-        date: new Date(q.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
-        total: Number(q.total_value),
-        status: q.status,
-        unitValue: Number(q.total_value).toString(),
-        quantity: '1',
-        shipping: '0',
-        clientId: q.client_id
-      }));
+      const mappedData = data.map(q => {
+        const parts = q.description.split('-');
+        const qty = q.quantity ?? 1;
+        const unitVal = q.unit_price ? Number(q.unit_price) : Number(q.total_value);
+        return {
+          id: q.id,
+          client: parts[0]?.trim() || 'Cliente',
+          date: new Date(q.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
+          total: Number(q.total_value),
+          status: q.status,
+          unitValue: unitVal.toString(),
+          quantity: qty.toString(),
+          shipping: '0',
+          expiryDate: q.expiry_date || '',
+          clientId: q.client_id,
+          productId: q.product_id || ''
+        };
+      });
       setOrcamentos(mappedData);
     }
     setIsLoading(false);
@@ -103,7 +122,10 @@ export default function OrcamentosView() {
       total_value: totalFinal,
       status: 'PENDENTE' as const,
       expiry_date: expiryDate || null,
-      client_id: selectedClientId || null
+      client_id: selectedClientId || null,
+      product_id: selectedProductId || null,
+      quantity: parseInt(quantity) || 1,
+      unit_price: parseFloat(unitValue.toString().replace(',', '.')) || 0
     };
 
     if (editingItem) {
@@ -114,7 +136,7 @@ export default function OrcamentosView() {
       }
       setOrcamentos(prev => prev.map(item => 
         item.id === editingItem.id 
-          ? { ...item, client: client.trim(), unitValue, quantity, shipping, total: totalFinal } 
+          ? { ...item, client: client.trim(), unitValue, quantity, shipping, total: totalFinal, productId: selectedProductId } 
           : item
       ));
     } else {
@@ -129,10 +151,12 @@ export default function OrcamentosView() {
           client: client.trim(),
           date: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
           status: 'PENDENTE',
-          unitValue: totalFinal.toString(),
-          quantity: '1',
-          shipping: '0',
-          total: totalFinal
+          unitValue: unitValue,
+          quantity: quantity,
+          shipping: shipping,
+          total: totalFinal,
+          expiryDate: expiryDate,
+          productId: selectedProductId || ''
         };
         setOrcamentos(prev => [newQuote, ...prev]);
       }
@@ -146,6 +170,8 @@ export default function OrcamentosView() {
     setQuantity(item.quantity);
     setUnitValue(item.unitValue);
     setShipping(item.shipping);
+    setSelectedClientId(item.clientId || '');
+    setSelectedProductId(item.productId || '');
     setShowAddModal(true);
     setActiveMenu(null);
   };
@@ -172,8 +198,15 @@ export default function OrcamentosView() {
     setActiveMenu(null);
   };
 
-  const handleShowPreview = (item: any) => {
-    setPreviewData(item);
+  const handleShowPreview = async (item: any) => {
+    let productName = 'Serviço de Manufatura 3D';
+    if (item.productId) {
+      const selectedProduct = productsList.find(p => p.id === item.productId);
+      if (selectedProduct) {
+        productName = selectedProduct.name;
+      }
+    }
+    setPreviewData({ ...item, productName });
     setShowPreview(true);
     setActiveMenu(null);
   };
@@ -182,6 +215,7 @@ export default function OrcamentosView() {
     setClient(''); setQuantity('1'); setUnitValue('0'); setShipping('0');
     setExpiryDate(''); setEditingItem(null); setShowAddModal(false);
     setSelectedClientId('');
+    setSelectedProductId('');
   };
 
   return (
@@ -280,9 +314,33 @@ export default function OrcamentosView() {
                     }} 
                     style={{ ...iconInputStyle, cursor: 'pointer' }}
                   >
-                    <option value="">Selecione um cliente...</option>
+                    <option value="" style={{ color: '#888' }}>Selecione um cliente...</option>
                     {clientsList.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                      <option key={c.id} value={c.id} style={{ color: '#fff' }}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="input-group">
+                <label>Produto</label>
+                <div style={{ position: 'relative' }}>
+                  <Package size={16} style={iconOverlayStyle} />
+                  <select 
+                    value={selectedProductId} 
+                    onChange={e => {
+                      const selectedId = e.target.value;
+                      setSelectedProductId(selectedId);
+                      const selectedProduct = productsList.find(p => p.id === selectedId);
+                      if (selectedProduct) {
+                        setUnitValue(selectedProduct.price?.toString().replace('.', ',') || '0');
+                      }
+                    }} 
+                    style={{ ...iconInputStyle, cursor: 'pointer' }}
+                  >
+                    <option value="" style={{ color: '#888' }}>Selecione um produto...</option>
+                    {productsList.map(p => (
+                      <option key={p.id} value={p.id} style={{ color: '#fff' }}>{p.name} - R$ {Number(p.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</option>
                     ))}
                   </select>
                 </div>
@@ -353,8 +411,10 @@ export default function OrcamentosView() {
 function QuotePreview({ data, onClose }: any) {
   const { currencySymbol } = useSettings();
   const handlePrint = () => window.print();
-  const subtotalVal = parseFloat(data.unitValue) * parseFloat(data.quantity);
-  const shippingVal = parseFloat(data.shipping) || 0;
+  const quantityNum = parseInt(data.quantity) || 1;
+  const unitValNum = parseFloat(data.unitValue?.toString().replace(',', '.')) || 0;
+  const subtotalVal = quantityNum * unitValNum;
+  const shippingVal = parseFloat(data.shipping?.toString().replace(',', '.')) || 0;
 
   return (
     <>
@@ -394,7 +454,7 @@ function QuotePreview({ data, onClose }: any) {
             </div>
             <div style={{ textAlign: 'right', fontSize: '11px', color: '#888', fontWeight: 700, lineHeight: '1.8' }}>
               <div>EMISSÃO: {data.date}</div>
-              <div>VALIDADE: 15 DIAS</div>
+              <div>VALIDADE: {data.expiryDate ? new Date(data.expiryDate).toLocaleDateString('pt-BR') : '15 DIAS'}</div>
             </div>
           </div>
 
@@ -418,7 +478,7 @@ function QuotePreview({ data, onClose }: any) {
                 <span style={{ flex: 1, textAlign: 'right' }}>Subtotal</span>
               </div>
               <div style={{ display: 'flex', padding: '16px 20px', borderTop: '1px solid #f0f0f0', fontSize: '13px', color: '#333' }}>
-                <span style={{ flex: 3 }}>Serviço de Manufatura 3D</span>
+                <span style={{ flex: 3 }}>{data.productName || 'Serviço de Manufatura 3D'}</span>
                 <span style={{ flex: 1, textAlign: 'center' }}>{data.quantity}</span>
                 <span style={{ flex: 1, textAlign: 'right' }}>{currencySymbol} {parseFloat(data.unitValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 <span style={{ flex: 1, textAlign: 'right' }}>{currencySymbol} {subtotalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
