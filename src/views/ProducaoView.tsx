@@ -112,14 +112,17 @@ export default function ProducaoView() {
 
   // Recalcular materiais quando quantidade mudar (se houver produto selecionado)
   useEffect(() => {
-    if (selectedProductId && jobMaterials.some(m => m.materialId)) {
-      const qty = parseInt(quantity) || 1;
-      setJobMaterials(prev => prev.map(m => ({
-        ...m,
-        weight: m.materialId ? (m.weightPerUnit || 0) * qty : 0
-      })));
+    if (selectedProductId) {
+      // Atualiza os pesos baseado na quantidade atual
+      setJobMaterials(prev => prev.map(m => {
+        if (m.materialId && m.weightPerUnit > 0) {
+          const qty = parseInt(quantity) || 1;
+          return { ...m, weight: m.weightPerUnit * qty };
+        }
+        return m;
+      }));
     }
-  }, [quantity]);
+  }, [quantity, selectedProductId]);
 
   const loadClients = async () => {
     const { data } = await clientsApi.getAll();
@@ -668,16 +671,25 @@ const filteredJobs = jobs.filter(j => {
                           const qty = parseInt(quantity) || 1;
                           
                           if (prodMaterials && prodMaterials.length > 0) {
-                            const newSlots = prodMaterials.map((pm: any) => ({
-                              materialId: pm.material_id,
-                              materialName: pm.material?.name || pm.material_name || '',
-                              weight: (pm.weight_g || 0) * qty,
-                              weightPerUnit: pm.weight_g || 0
-                            }));
+                            console.log('Materiais do produto:', prodMaterials);
+                            const newSlots = prodMaterials.map((pm: any) => {
+                              // Extrair nome do material - pode vir de diferentes estruturas
+                              const matName = pm.material?.name || pm.material_name || '';
+                              const matColor = pm.material?.color || pm.color || '';
+                              const matId = pm.material_id || pm.material?.id || '';
+                              
+                              return {
+                                materialId: matId,
+                                materialName: matName + (matColor ? ` (${matColor})` : ''),
+                                weight: (pm.weight_g || 0) * qty,
+                                weightPerUnit: pm.weight_g || 0
+                              };
+                            });
                             // Preencher slots restantes com vazio
                             while (newSlots.length < 4) {
                               newSlots.push({ materialId: '', materialName: '', weight: 0, weightPerUnit: 0 });
                             }
+                            console.log('Slots criados:', newSlots);
                             setJobMaterials(newSlots);
                           } else if (product?.materialWeight && product.materialWeight > 0) {
                             // Fallback para peso único

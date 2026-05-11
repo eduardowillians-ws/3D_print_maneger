@@ -50,13 +50,26 @@ export const productsApi = {
     };
   },
 
-  // Materials por produto - com dados do material
-  async getMaterialsByProduct(productId: string): Promise<ApiResponse<ProductMaterial & { material_name?: string; material_color?: string }>> {
+  // Materials por produto - com dados do material via relação
+  async getMaterialsByProduct(productId: string): Promise<ApiResponse<ProductMaterial>> {
     const { data, error } = await supabase
       .from('product_materials')
-      .select('*, material:material_id(name, color)')
+      .select('*, material:materials(id, name, color)')
       .eq('product_id', productId)
       .order('slot_position', { ascending: true });
+    
+    // Se não encontrar via relação, tenta buscar direto
+    if (!data || data.length === 0) {
+      const { data: directData, error: directError } = await supabase
+        .from('product_materials')
+        .select('*')
+        .eq('product_id', productId)
+        .order('slot_position', { ascending: true });
+      
+      if (directError) return { data: null, error: directError };
+      return { data: directData, error: null };
+    }
+    
     return { data, error };
   },
 
