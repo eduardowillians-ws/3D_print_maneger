@@ -38,17 +38,19 @@ type JobStatus = 'PENDENTE' | 'IMPRIMINDO' | 'CONCLUIDO' | 'ARQUIVADO' | 'QUALID
 interface ProductionJob {
   id: string;
   name: string;
+  product_name: string;
   printer: string;
   material: string;
   timeRemaining: string;
   progress: number;
   status: JobStatus;
   customer: string;
-  quantity?: number;
+  quantity: number;
   quantity_good?: number;
   quantity_bad?: number;
   quality_checked?: boolean;
   quality_notes?: string;
+  start_time?: string | null;
   created_at?: string;
 }
 
@@ -172,11 +174,30 @@ export default function ProducaoView() {
 
   const calculateProgress = (startTime: string | null, estimatedHours: number): number => {
     if (!startTime || estimatedHours <= 0) return 0;
-    const start = new Date(startTime).getTime();
-    const now = new Date().getTime();
-    const elapsedHours = (now - start) / (1000 * 60 * 60);
-    const progress = (elapsedHours / estimatedHours) * 100;
-    return Math.min(Math.round(progress), 100);
+    
+    try {
+      const start = new Date(startTime).getTime();
+      const now = new Date().getTime();
+      
+      if (isNaN(start) || start > now) return 0;
+      
+      const elapsedHours = (now - start) / (1000 * 60 * 60);
+      if (elapsedHours < 0) return 0;
+      
+      const progress = (elapsedHours / estimatedHours) * 100;
+      return Math.min(Math.round(progress), 100);
+    } catch {
+      return 0;
+    }
+  };
+
+  // Calcular tempo total de impressão baseado na quantidade de peças
+  const calculateTotalPrintTime = (product: any, quantity: number): number => {
+    // Tempo por peça em horas (do cadastro do produto)
+    const timePerPiece = product.print_time_hours + (product.print_time_minutes / 60);
+    // Tempo total estimado = tempo por peça × quantidade
+    const totalTime = timePerPiece * quantity;
+    return totalTime;
   };
 
   const loadJobs = async () => {
@@ -198,7 +219,8 @@ export default function ProducaoView() {
     if (jobsData) {
       const mappedData: ProductionJob[] = jobsData.map(j => {
         const product = productsData?.find(p => p.name === j.product_name);
-        const estimatedHours = product ? product.print_time_hours + (product.print_time_minutes / 60) : 8;
+        const timePerPiece = product ? product.print_time_hours + (product.print_time_minutes / 60) : 8;
+        const estimatedHours = timePerPiece * (j.quantity || 1);
         const calculatedProgress = j.status === 'IMPRIMINDO' && j.start_time 
           ? calculateProgress(j.start_time, estimatedHours)
           : j.progress;
@@ -209,12 +231,17 @@ export default function ProducaoView() {
           ? printersMap.find((p: any) => p.id === j.printer_id)?.name || 'Não atribuída' 
           : 'Não atribuída';
         
+        const hoursDisplay = timePerPiece >= 1 
+          ? `${Math.round(timePerPiece * 60)}m`
+          : `${Math.round(timePerPiece * 60)}m`;
+        
         return {
           id: j.id,
           name: j.product_name,
+          product_name: j.product_name,
           printer: printerName,
           material: 'PLA Standard',
-          timeRemaining: j.status === 'IMPRIMINDO' ? `${Math.max(0, Math.floor(remainingHours))}h ${Math.round((remainingHours % 1) * 60)}m` : 'Pendente',
+          timeRemaining: j.status === 'IMPRIMINDO' ? `${Math.max(0, Math.floor(remainingHours))}h ${Math.round((remainingHours % 1) * 60)}m` : hoursDisplay,
           progress: calculatedProgress,
           status: j.status === 'FILA' ? 'PENDENTE' : j.status === 'CONCLUIDO' ? 'CONCLUIDO' : j.status === 'ARQUIVADO' ? 'ARQUIVADO' : 'IMPRIMINDO',
           customer: 'Cliente Avulso',
@@ -296,12 +323,14 @@ export default function ProducaoView() {
         const newJob: ProductionJob = {
           id: data.id,
           name: data.product_name,
+          product_name: data.product_name,
           printer: selectedPrinterId ? printersList.find(p => p.id === selectedPrinterId)?.name || 'Não atribuída' : 'Não atribuída',
           material: materialNames,
           timeRemaining: 'Pendente',
           progress: 0,
           status: 'PENDENTE',
-          customer: selectedClientId ? clientsList.find(c => c.id === selectedClientId)?.name || 'Cliente Avulso' : 'Cliente Avulso'
+          customer: selectedClientId ? clientsList.find(c => c.id === selectedClientId)?.name || 'Cliente Avulso' : 'Cliente Avulso',
+          quantity: 1
         };
         setJobs(prev => [newJob, ...prev]);
       }
@@ -326,6 +355,8 @@ alert('Trabalho adicionado à fila!');
       return;
     }
 
+    const currentJob = jobs.find(j => j.id === id);
+    
     const statusMap: Record<string, ProductionStatus> = {
       'PENDENTE': 'FILA',
       'IMPRIMINDO': 'IMPRIMINDO',
@@ -333,36 +364,51 @@ alert('Trabalho adicionado à fila!');
       'ARQUIVADO': 'ARQUIVADO'
     };
 
-    const progress = newStatus === 'CONCLUIDO' ? 100 : (newStatus === 'IMPRIMINDO' ? 5 : 0);
-    const { error } = await productionApi.updateStatus(id, statusMap[newStatus], progress);
+    let finalProgress = 0;
+    let finalStartTime: string | null = (currentJob as any)?.start_time || null;
+    
+    if (newStatus === 'IMPRIMINDO') {
+      if (!finalStartTime) {
+        finalStartTime = new Date().toISOString();
+      }
+      
+      if (currentJob) {
+        const selectedProduct = productsList.find(p => p.name === currentJob.product_name);
+        if (selectedProduct) {
+          const timePerPiece = selectedProduct.print_time_hours + (selectedProduct.print_time_minutes / 60);
+          const totalEstimatedHours = timePerPiece * (currentJob.quantity || 1);
+          const progressCalc = calculateProgress(finalStartTime, totalEstimatedHours);
+          finalProgress = Math.max(progressCalc, 1);
+        }
+      }
+    } else if (newStatus === 'CONCLUIDO') {
+      finalProgress = 100;
+    }
+    
+    const { error } = await productionApi.updateStatus(id, statusMap[newStatus], finalProgress, finalStartTime || undefined);
     if (error) {
       alert('Erro ao mover trabalho: ' + error.message);
       return;
     }
 
-    // Atualizar status da impressora quando trabalho inicia/finaliza
-    const currentJob = jobs.find(j => j.id === id);
     if (currentJob && currentJob.printer && currentJob.printer !== 'Não atribuída') {
       const printersList = await printersApi.getAll();
       const printer = printersList.data?.find(p => p.name === currentJob.printer);
       if (printer) {
         const updates: any = {};
         
-        // Atualizar status
         const newPrinterStatus = newStatus === 'IMPRIMINDO' ? 'IMPRIMINDO' : (newStatus === 'CONCLUIDO' || newStatus === 'ARQUIVADO' ? 'OCIOSA' : null);
         if (newPrinterStatus) {
           updates.status = newPrinterStatus;
         }
         
-        // Ao iniciar impressão, adicionar horas estimadas do produto ao current_hours
         if (newStatus === 'IMPRIMINDO') {
-          const selectedProduct = productsList.find(p => p.name === currentJob.name);
+          const selectedProduct = productsList.find(p => p.name === currentJob.product_name);
           if (selectedProduct) {
-            updates.current_hours = (printer.current_hours || 0) + selectedProduct.printTime;
+            updates.current_hours = (printer.current_hours || 0) + (selectedProduct.print_time_hours + selectedProduct.print_time_minutes / 60) * currentJob.quantity;
           }
         }
         
-        // Ao concluir, incrementar total_jobs
         if (newStatus === 'CONCLUIDO' || newStatus === 'ARQUIVADO') {
           updates.total_jobs = (printer.total_jobs || 0) + 1;
         }
@@ -373,12 +419,21 @@ alert('Trabalho adicionado à fila!');
       }
     }
 
+    const selectedProductForTime = currentJob ? productsList.find(p => p.name === currentJob.product_name) : null;
+    let newTimeRemaining = currentJob?.timeRemaining || 'Pendente';
+    if (selectedProductForTime && newStatus === 'IMPRIMINDO' && currentJob) {
+      const timePerPiece = selectedProductForTime.print_time_hours + (selectedProductForTime.print_time_minutes / 60);
+      const totalHours = timePerPiece * (currentJob.quantity || 1);
+      newTimeRemaining = `${Math.round(totalHours * 60)}m`;
+    }
+
     setJobs(prev => prev.map(job => 
       job.id === id ? { 
         ...job, 
         status: newStatus, 
-        progress: progress,
-        timeRemaining: newStatus === 'CONCLUIDO' ? '0h 00m' : job.timeRemaining
+        progress: finalProgress,
+        start_time: finalStartTime,
+        timeRemaining: newStatus === 'CONCLUIDO' ? '0h 00m' : newTimeRemaining
       } : job
     ));
   };
@@ -1144,11 +1199,11 @@ function JobCard({ job, onMove, onDelete, onEdit, onQuality }: { job: Production
              <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 800 }}>{job.progress}%</span>
           </div>
           <div style={{ height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-             <motion.div 
-               initial={{ width: 0 }}
-               animate={{ width: `${job.progress}%` }}
-               style={{ height: '100%', background: 'linear-gradient(90deg, var(--primary), var(--accent-cyan))', boxShadow: '0 0 10px var(--primary-glow)' }} 
-             />
+<motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${Math.max(job.progress || 0, 0)}%` }}
+                style={{ height: '100%', background: 'linear-gradient(90deg, var(--primary), var(--accent-cyan))', boxShadow: '0 0 10px var(--primary-glow)' }} 
+              />
           </div>
         </div>
       )}

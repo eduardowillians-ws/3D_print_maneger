@@ -297,7 +297,7 @@ export default function ImpressorasView() {
                         <div style={{ height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden', marginBottom: '8px' }}>
                             <motion.div 
                                 initial={{ width: 0 }}
-                                animate={{ width: `${printer.progress}%` }}
+                                animate={{ width: `${Math.max(printer.progress || 0, 0)}%` }}
                                 style={{ height: '100%', background: 'linear-gradient(90deg, var(--primary), var(--accent-cyan))', boxShadow: '0 0 10px var(--primary-glow)' }} 
                             />
                         </div>

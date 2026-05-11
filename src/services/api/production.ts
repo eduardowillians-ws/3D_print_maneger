@@ -47,9 +47,11 @@ export const productionApi = {
     return baseQueries.delete('production_jobs', id);
   },
 
-  async updateStatus(id: string, status: ProductionStatus, progress?: number): Promise<ApiResponseSingle<ProductionJob>> {
+  async updateStatus(id: string, status: ProductionStatus, progress?: number, startTime?: string): Promise<ApiResponseSingle<ProductionJob>> {
     const updates: Record<string, unknown> = { status };
-    if (status === 'IMPRIMINDO') {
+    if (status === 'IMPRIMINDO' && startTime) {
+      updates.start_time = startTime;
+    } else if (status === 'IMPRIMINDO' && !startTime) {
       updates.start_time = new Date().toISOString();
     }
     if (status === 'CONCLUIDO') {
@@ -255,6 +257,55 @@ export const productionApi = {
     return Object.values(aggregated)
       .sort((a, b) => b.totalQuantity - a.totalQuantity)
       .slice(0, limit);
+  },
+
+  async getJobsWithEstimatedTime(monthIndex?: number, year?: string): Promise<{ quantity: number; estimatedHours: number }[]> {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+
+    let jobsQuery = supabase
+      .from('production_jobs')
+      .select('quantity, created_at, user_id');
+
+    if (year) {
+      const startDate = `${year}-01-01`;
+      const endDate = `${year}-12-31`;
+      jobsQuery = jobsQuery.gte('created_at', startDate).lte('created_at', endDate);
+    }
+
+    const { data: jobsData, error: jobsError } = await jobsQuery;
+    if (jobsError || !jobsData) return [];
+
+    const { data: productsData, error: productsError } = await supabase
+      .from('products')
+      .select('id, name, print_time_hours, print_time_minutes, user_id');
+
+    if (productsError || !productsData) return [];
+
+    let filteredJobs = jobsData;
+    if (userId) {
+      filteredJobs = jobsData.filter((j: any) => j.user_id === userId);
+    }
+
+    if (monthIndex !== undefined && monthIndex >= 0) {
+      filteredJobs = filteredJobs.filter((j: any) => {
+        const date = new Date(j.created_at);
+        return date.getMonth() === monthIndex;
+      });
+    }
+
+    const productsMap: Record<string, { hours: number; minutes: number }> = {};
+    productsData.forEach((p: any) => {
+      if (userId && p.user_id !== userId) return;
+      productsMap[p.name.toLowerCase()] = { hours: p.print_time_hours || 0, minutes: p.print_time_minutes || 0 };
+    });
+
+    return filteredJobs.map((job: any) => {
+      const quantity = job.quantity || 1;
+      const productInfo = productsMap[job.product_name?.toLowerCase()] || { hours: 2, minutes: 0 };
+      const estimatedHours = (productInfo.hours + productInfo.minutes / 60) * quantity;
+      return { quantity, estimatedHours };
+    });
   }
 };
 

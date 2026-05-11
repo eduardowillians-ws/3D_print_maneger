@@ -84,7 +84,7 @@ export interface Quote {
   created_at: string;
 }
 
-export type ProductionStatus = 'FILA' | 'IMPRIMINDO' | 'CONCLUIDO' | 'ARQUIVADO' | 'FALHA';
+export type ProductionStatus = 'FILA' | 'IMPRIMINDO' | 'CONCLUIDO' | 'ARQUIVADO' | 'FALHA' | 'PENDENTE';
 
 export interface ProductionJob {
   id: string;
