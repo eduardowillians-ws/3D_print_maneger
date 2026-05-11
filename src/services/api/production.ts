@@ -123,6 +123,138 @@ export const productionApi = {
 
   async deleteMaterial(id: string) {
     return supabase.from('production_job_materials').delete().eq('id', id);
+  },
+
+  async getAggregatedMaterials(monthIndex?: number, year?: string): Promise<{ material_name: string; total_weight: number; count: number }[]> {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+
+    let query = supabase
+      .from('production_job_materials')
+      .select('material_name, weight_g, jobs:job_id(created_at, user_id)');
+
+    if (year) {
+      const startDate = `${year}-01-01`;
+      const endDate = `${year}-12-31`;
+      query = query.gte('jobs.created_at', startDate).lte('jobs.created_at', endDate);
+    }
+
+    const { data, error } = await query;
+    if (error || !data) return [];
+
+    let filteredData = data;
+    if (userId) {
+      filteredData = data.filter((d: any) => d.jobs?.user_id === userId);
+    }
+
+    if (monthIndex !== undefined && monthIndex >= 0) {
+      filteredData = filteredData.filter((d: any) => {
+        const createdAt = d.jobs?.created_at;
+        if (!createdAt) return false;
+        const date = new Date(createdAt);
+        return date.getMonth() === monthIndex;
+      });
+    }
+
+    const aggregated: Record<string, { material_name: string; total_weight: number; count: number }> = {};
+    filteredData.forEach((item: any) => {
+      const name = item.material_name || 'Sem nome';
+      if (!aggregated[name]) {
+        aggregated[name] = { material_name: name, total_weight: 0, count: 0 };
+      }
+      aggregated[name].total_weight += item.weight_g || 0;
+      aggregated[name].count += 1;
+    });
+
+    return Object.values(aggregated).sort((a, b) => b.total_weight - a.total_weight);
+  },
+
+  async getTopClients(monthIndex?: number, year?: string, limit: number = 5): Promise<{ name: string; totalValue: number; count: number }[]> {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+
+    let query = supabase
+      .from('quotes')
+      .select('client_id, clients(name), total_value, created_at, user_id')
+      .in('status', ['APROVADO', 'PAGO']);
+
+    if (year) {
+      const startDate = `${year}-01-01`;
+      const endDate = `${year}-12-31`;
+      query = query.gte('created_at', startDate).lte('created_at', endDate);
+    }
+
+    const { data, error } = await query;
+    if (error || !data) return [];
+
+    let filteredData = data;
+    if (userId) {
+      filteredData = data.filter((d: any) => d.user_id === userId);
+    }
+
+    if (monthIndex !== undefined && monthIndex >= 0) {
+      filteredData = filteredData.filter((d: any) => {
+        const date = new Date(d.created_at);
+        return date.getMonth() === monthIndex;
+      });
+    }
+
+    const aggregated: Record<string, { name: string; totalValue: number; count: number }> = {};
+    filteredData.forEach((item: any) => {
+      const clientName = item.clients?.name || 'Cliente Unknown';
+      if (!aggregated[clientName]) {
+        aggregated[clientName] = { name: clientName, totalValue: 0, count: 0 };
+      }
+      aggregated[clientName].totalValue += item.total_value || 0;
+      aggregated[clientName].count += 1;
+    });
+
+    return Object.values(aggregated)
+      .sort((a, b) => b.totalValue - a.totalValue)
+      .slice(0, limit);
+  },
+
+  async getTopProducts(monthIndex?: number, year?: string, limit: number = 5): Promise<{ name: string; totalQuantity: number }[]> {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+
+    let query = supabase
+      .from('production_jobs')
+      .select('product_name, quantity, created_at, user_id');
+
+    if (year) {
+      const startDate = `${year}-01-01`;
+      const endDate = `${year}-12-31`;
+      query = query.gte('created_at', startDate).lte('created_at', endDate);
+    }
+
+    const { data, error } = await query;
+    if (error || !data) return [];
+
+    let filteredData = data;
+    if (userId) {
+      filteredData = data.filter((d: any) => d.user_id === userId);
+    }
+
+    if (monthIndex !== undefined && monthIndex >= 0) {
+      filteredData = filteredData.filter((d: any) => {
+        const date = new Date(d.created_at);
+        return date.getMonth() === monthIndex;
+      });
+    }
+
+    const aggregated: Record<string, { name: string; totalQuantity: number }> = {};
+    filteredData.forEach((item: any) => {
+      const name = item.product_name || 'Produto Unknown';
+      if (!aggregated[name]) {
+        aggregated[name] = { name, totalQuantity: 0 };
+      }
+      aggregated[name].totalQuantity += item.quantity || 1;
+    });
+
+    return Object.values(aggregated)
+      .sort((a, b) => b.totalQuantity - a.totalQuantity)
+      .slice(0, limit);
   }
 };
 
