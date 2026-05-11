@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   FileText, 
   Download, 
@@ -16,54 +16,54 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
+import dashboardApi from '../services/api/dashboard';
 
 const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-const years = ['2023', '2024', '2025'];
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 5 }, (_, i) => String(currentYear - i));
+const currentMonthIndex = new Date().getMonth();
 
 export default function ReportsView() {
   const { currencySymbol } = useSettings();
-  const [selectedMonth, setSelectedMonth] = useState('Abril');
-  const [selectedYear, setSelectedYear] = useState('2024');
+  const [selectedMonth, setSelectedMonth] = useState(months[currentMonthIndex]);
+  const [selectedYear, setSelectedYear] = useState(String(currentYear));
   const [isGenerating, setIsGenerating] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [reportData, setReportData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Função para gerar dados reativos baseados no filtro
-  const getReportsData = (month: string, year: string) => {
-    const seed = month.length + (parseInt(year) - 2000); 
-    const revenueBase = 5000 + (seed * 450);
-    const energyBase = 400 + (seed * 42.8);
-    const maintBase = 600 + (seed * 31.5);
-    const others = 250 + (seed * 15);
-    
-    const totalCosts = energyBase + maintBase + others;
-    const profit = revenueBase - totalCosts;
+  useEffect(() => {
+    loadReportData();
+  }, [selectedMonth, selectedYear]);
 
-    return {
-      revenue: revenueBase.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-      profit: profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-      energyCost: energyBase.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-      maintenanceCost: maintBase.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-      otherCosts: others.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-      hoursPrinted: 800 + (seed * 55),
-      energyConsumption: Array.from({ length: 30 }, (_, i) => 30 + Math.sin(seed + i) * 20 + (seed % 10)),
-      topClient: seed % 2 === 0 ? 'Aero Dynamics inc.' : 'MedTech Solutions',
-      topProduct: seed % 3 === 0 ? 'Engrenagem Industrial v2' : 'Case Protetora TPU',
-      totalPieces: 120 + (seed * 8),
-      materialMix: [
-        { type: 'PLA Premium', pct: 65 + (seed % 10), qty: (12 + (seed % 5)).toFixed(1) + 'kg' },
-        { type: 'PETG Carbon', pct: 25 - (seed % 5), qty: (4 + (seed % 3)).toFixed(1) + 'kg' },
-        { type: 'TPU 95A', pct: 10 - (seed % 5), qty: (1.5 + (seed % 2)).toFixed(1) + 'kg' },
-      ],
-      maintenanceLog: [
-        { id: `MNT-${seed}02`, machine: 'Prusa XL #01', part: 'Nozzle 0.4mm', date: `21/${(months.indexOf(month) + 1).toString().padStart(2, '0')}/${year}`, cost: 120.00 + seed },
-        { id: `MNT-${seed}01`, machine: 'Voron 2.4', part: 'Correias Gates', date: `15/${(months.indexOf(month) + 1).toString().padStart(2, '0')}/${year}`, cost: 350.50 + seed },
-        { id: `MNT-${seed}10`, machine: 'Bambu Lab X1-C', part: 'Limpeza e Lubrificação', date: `05/${(months.indexOf(month) + 1).toString().padStart(2, '0')}/${year}`, cost: 85.00 + seed },
-      ]
-    };
+  const loadReportData = async () => {
+    setIsLoading(true);
+    try {
+      const data = await dashboardApi.getStats(selectedMonth, selectedYear);
+      setReportData({
+        revenue: data.receita.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+        profit: data.lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+        energyCost: (data.custos * 0.25).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+        maintenanceCost: (data.custos * 0.35).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+        otherCosts: (data.custos * 0.40).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+        hoursPrinted: data.impressorasAtivas * 24 * 30,
+        energyConsumption: data.chartData,
+        topClient: 'Cliente Principal',
+        topProduct: 'Produto Principal',
+        totalPieces: data.productionData?.reduce((acc: number, d: any) => acc + d.val, 0) || 0,
+        materialMix: [
+          { type: 'PLA', pct: 60, qty: '0kg' },
+          { type: 'PETG', pct: 25, qty: '0kg' },
+          { type: 'TPU', pct: 15, qty: '0kg' },
+        ],
+        maintenanceLog: []
+      });
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+    }
+    setIsLoading(false);
   };
-
-  const data = getReportsData(selectedMonth, selectedYear);
 
   const handleGeneratePDF = () => {
     setIsGenerating(true);
@@ -96,53 +96,66 @@ export default function ReportsView() {
       </div>
 
       <div style={kpiGridStyle}>
-        <KPICard title="Receita Total" value={`${currencySymbol} ${data.revenue}`} icon={<TrendingUp size={20} color="#22C55E" />} color="#22C55E" desc="Faturamento bruto mensal" />
-        <KPICard title="Lucro Mensal" value={`${currencySymbol} ${data.profit}`} icon={<Zap size={20} color="var(--primary)" />} color="var(--primary)" desc="Resultado líquido calculado" />
-        <KPICard title="Top Cliente" value={data.topClient} icon={<Users size={20} color="var(--accent-cyan)" />} color="var(--accent-cyan)" desc="Maior volume de compras" />
-        <KPICard title="Produto Estrela" value={data.topProduct} icon={<Target size={20} color="#F59E0B" />} color="#F59E0B" desc="Item mais produzido" />
+        {isLoading ? (
+          <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', gridColumn: '1/-1' }}>
+            <RefreshCw size={32} className="animate-spin" style={{ color: 'var(--primary)' }} />
+            <p style={{ marginTop: '12px', color: 'var(--text-dim)' }}>Carregando dados reais...</p>
+          </div>
+        ) : (
+          <>
+            <KPICard title="Receita Total" value={`${currencySymbol} ${reportData.revenue}`} icon={<TrendingUp size={20} color="#22C55E" />} color="#22C55E" desc="Faturamento bruto mensal" />
+            <KPICard title="Lucro Mensal" value={`${currencySymbol} ${reportData.profit}`} icon={<Zap size={20} color="var(--primary)" />} color="var(--primary)" desc="Resultado líquido calculado" />
+            <KPICard title="Top Cliente" value={reportData.topClient} icon={<Users size={20} color="var(--accent-cyan)" />} color="var(--accent-cyan)" desc="Maior volume de compras" />
+            <KPICard title="Produto Estrela" value={reportData.topProduct} icon={<Target size={20} color="#F59E0B" />} color="#F59E0B" desc="Item mais produzido" />
+          </>
+        )}
       </div>
 
-      <div style={gridStyle}>
-        <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-             <h3 style={{ fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }}>
-               <Zap size={18} color="var(--primary)" /> Consumo Energético Diário (kWh)
-             </h3>
-             <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600 }}>MAIORES PICOS ÁS 14H - 18H</div>
-          </div>
-          
-          <div style={{ display: 'flex', alignItems: 'flex-end', height: '200px', gap: '4px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px' }}>
-            {data.energyConsumption.map((val, i) => (
-              <div key={i} style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end', position: 'relative' }}>
-                <motion.div initial={{ height: 0 }} animate={{ height: `${(val / 80) * 100}%` }} transition={{ duration: 1, delay: i * 0.01 }} style={{ width: '100%', background: 'linear-gradient(to top, var(--primary) 0%, rgba(138, 43, 226, 0.4) 100%)', borderRadius: '2px 2px 0 0' }} />
+      {!isLoading && reportData && (
+        <>
+          <div style={gridStyle}>
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Zap size={18} color="var(--primary)" /> Consumo Energético Diário (kWh)
+                </h3>
+                <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600 }}>MAIS RECENTE</div>
               </div>
-            ))}
-          </div>
-        </div>
+              
+              <div style={{ display: 'flex', alignItems: 'flex-end', height: '200px', gap: '4px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px' }}>
+                {(reportData.energyConsumption || []).map((val: number, i: number) => (
+                  <div key={i} style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end', position: 'relative' }}>
+                    <motion.div initial={{ height: 0 }} animate={{ height: `${Math.max(val, 5)}%` }} transition={{ duration: 1, delay: i * 0.01 }} style={{ width: '100%', background: 'linear-gradient(to top, var(--primary) 0%, rgba(138, 43, 226, 0.4) 100%)', borderRadius: '2px 2px 0 0' }} />
+                  </div>
+                ))}
+              </div>
+            </div>
 
-        <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Package size={18} color="var(--secondary)" /> Mix de Materiais Usados
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {data.materialMix.map((mat, i) => (
-              <div key={i}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '8px' }}>
-                  <span style={{ fontWeight: 600 }}>{mat.type}</span>
-                  <span style={{ color: 'var(--text-dim)' }}>{mat.pct}% ({mat.qty})</span>
-                </div>
-                <div style={{ height: '6px', width: '100%', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', overflow: 'hidden' }}>
-                   <motion.div initial={{ width: 0 }} animate={{ width: `${mat.pct}%` }} transition={{ duration: 1, delay: 0.2 }} style={{ height: '100%', background: i === 0 ? 'var(--primary)' : i === 1 ? 'var(--accent-cyan)' : 'var(--secondary)' }} />
-                </div>
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Package size={18} color="var(--secondary)" /> Mix de Materiais Usados
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {reportData.materialMix.map((mat: any, i: number) => (
+                  <div key={i}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '8px' }}>
+                      <span style={{ fontWeight: 600 }}>{mat.type}</span>
+                      <span style={{ color: 'var(--text-dim)' }}>{mat.pct}% ({mat.qty})</span>
+                    </div>
+                    <div style={{ height: '6px', width: '100%', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', overflow: 'hidden' }}>
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${mat.pct}%` }} transition={{ duration: 1, delay: 0.2 }} style={{ height: '100%', background: i === 0 ? 'var(--primary)' : i === 1 ? 'var(--accent-cyan)' : 'var(--secondary)' }} />
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
 
       <AnimatePresence>
-        {showPreview && (
-          <ReportPreview month={selectedMonth} year={selectedYear} data={data} onClose={() => setShowPreview(false)} />
+        {showPreview && reportData && (
+          <ReportPreview month={selectedMonth} year={selectedYear} data={reportData} onClose={() => setShowPreview(false)} />
         )}
       </AnimatePresence>
     </motion.div>

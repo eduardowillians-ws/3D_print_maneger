@@ -822,11 +822,11 @@ const filteredJobs = jobs.filter(j => {
                           newMaterials[idx].materialId = e.target.value;
                           setJobMaterials(newMaterials);
                         }}
-                        style={{ flex: 2, padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', color: 'white', fontSize: '13px' }}
+                        style={{ flex: 2, padding: '8px', borderRadius: '8px', background: '#1a1a1a', border: '1px solid var(--border-glass)', color: 'white', fontSize: '13px' }}
                       >
-                        <option value="">Slot {idx + 1} - Vazio</option>
+                        <option value="" style={{ background: '#1a1a1a', color: '#888' }}>Slot {idx + 1} - Vazio</option>
                         {materialsList.map(m => (
-                          <option key={m.id} value={m.id}>{m.name} {m.color ? `(${m.color})` : ''}</option>
+                          <option key={m.id} value={m.id} style={{ background: '#1a1a1a', color: 'white' }}>{m.name} {m.color ? `(${m.color})` : ''}</option>
                         ))}
                       </select>
                       <input 
