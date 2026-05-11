@@ -45,11 +45,11 @@ export default function ProdutosView() {
   const [materialsList, setMaterialsList] = useState<any[]>([]);
   
   // Estado para materiais do produto (até 4 slots)
-  const [productMaterials, setProductMaterials] = useState<{ materialId: string; weight: number }[]>([
-    { materialId: '', weight: 0 },
-    { materialId: '', weight: 0 },
-    { materialId: '', weight: 0 },
-    { materialId: '', weight: 0 }
+  const [productMaterials, setProductMaterials] = useState<{ materialId: string; materialName: string; weight: number }[]>([
+    { materialId: '', materialName: '', weight: 0 },
+    { materialId: '', materialName: '', weight: 0 },
+    { materialId: '', materialName: '', weight: 0 },
+    { materialId: '', materialName: '', weight: 0 }
   ]);
 
   useEffect(() => {
@@ -211,10 +211,10 @@ export default function ProdutosView() {
     setShowAddModal(false);
     setEditingProduct(null);
     setProductMaterials([
-      { materialId: '', weight: 0 },
-      { materialId: '', weight: 0 },
-      { materialId: '', weight: 0 },
-      { materialId: '', weight: 0 }
+      { materialId: '', materialName: '', weight: 0 },
+      { materialId: '', materialName: '', weight: 0 },
+      { materialId: '', materialName: '', weight: 0 },
+      { materialId: '', materialName: '', weight: 0 }
     ]);
   };
 
@@ -233,14 +233,24 @@ export default function ProdutosView() {
     const { data: prodMaterials } = await productsApi.getMaterialsByProduct(p.id);
     if (prodMaterials && prodMaterials.length > 0) {
       const newSlots = [
-        { materialId: '', weight: 0 },
-        { materialId: '', weight: 0 },
-        { materialId: '', weight: 0 },
-        { materialId: '', weight: 0 }
+        { materialId: '', materialName: '', weight: 0 },
+        { materialId: '', materialName: '', weight: 0 },
+        { materialId: '', materialName: '', weight: 0 },
+        { materialId: '', materialName: '', weight: 0 }
       ];
       prodMaterials.forEach((pm: any, idx: number) => {
         if (idx < 4) {
-          newSlots[idx] = { materialId: pm.material_id, weight: pm.weight_g };
+          // Tentar extrair nome e cor do material de diferentes estruturas
+          const matName = pm.material?.name || pm.material_name || '';
+          const matColor = pm.material?.color || pm.color || '';
+          const matId = pm.material_id || pm.material?.id || '';
+          const fullName = matName + (matColor ? ` (${matColor})` : '');
+          
+          newSlots[idx] = { 
+            materialId: matId, 
+            materialName: fullName, 
+            weight: pm.weight_g || 0 
+          };
         }
       });
       setProductMaterials(newSlots);
@@ -369,43 +379,52 @@ export default function ProdutosView() {
 </div>
                  </div>
 
-                 <div style={{ marginTop: '8px' }}>
-                   <label style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: '12px', display: 'block' }}>
-                     Materiais por Peça (até 4 slots - por unidade)
-                   </label>
-                   {productMaterials.map((slot, idx) => (
-                     <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
-                       <select 
-                         value={slot.materialId}
-                         onChange={e => {
-                           const newMaterials = [...productMaterials];
-                           newMaterials[idx].materialId = e.target.value;
-                           setProductMaterials(newMaterials);
-                         }}
-                         style={{ flex: 2, padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', color: 'white', fontSize: '13px' }}
-                       >
-<option value="" style={{ color: '#888' }}>Slot {idx + 1} - Vazio</option>
-                          {materialsList.map(m => (
-                            <option key={m.id} value={m.id} style={{ color: '#fff', background: '#0a0a0a' }}>{m.name} {m.color ? `(${m.color})` : ''}</option>
-                          ))}
-                       </select>
-<input 
-                          type="number" 
-                          placeholder="g"
-                          value={slot.weight || ''}
-                          onChange={e => {
-                            const newMaterials = [...productMaterials];
-                            newMaterials[idx].weight = parseFloat(e.target.value) || 0;
-                            setProductMaterials(newMaterials);
-                          }}
-                          style={{ flex: 1, padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', color: 'white', fontSize: '13px', textAlign: 'right' }}
-                          min="0"
-                          step="0.1"
-                        />
-                       <span style={{ fontSize: '11px', color: 'var(--text-dim)', width: '20px' }}>g</span>
-                     </div>
-                   ))}
-                 </div>
+<div style={{ marginTop: '8px' }}>
+                    <label style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: '12px', display: 'block' }}>
+                      Materiais por Peça (até 4 slots - por unidade)
+                    </label>
+                    {productMaterials.map((slot, idx) => {
+                      const selectedMaterial = materialsList.find(m => m.id === slot.materialId);
+                      const displayName = slot.materialName || selectedMaterial?.name || '';
+                      return (
+                        <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                          <select 
+                            value={slot.materialId}
+                            onChange={e => {
+                              const newMaterials = [...productMaterials];
+                              const mat = materialsList.find(m => m.id === e.target.value);
+                              newMaterials[idx] = { 
+                                ...newMaterials[idx], 
+                                materialId: e.target.value,
+                                materialName: mat?.name + (mat?.color ? ` (${mat.color})` : '') || ''
+                              };
+                              setProductMaterials(newMaterials);
+                            }}
+                            style={{ flex: 2, padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', color: 'white', fontSize: '13px' }}
+                          >
+                            <option value="" style={{ color: '#888' }}>Slot {idx + 1} - Vazio</option>
+                            {materialsList.map(m => (
+                              <option key={m.id} value={m.id} style={{ color: '#fff', background: '#0a0a0a' }}>{m.name} {m.color ? `(${m.color})` : ''}</option>
+                            ))}
+                          </select>
+                          <input 
+                            type="number" 
+                            placeholder="g"
+                            value={slot.weight || ''}
+                            onChange={e => {
+                              const newMaterials = [...productMaterials];
+                              newMaterials[idx].weight = parseFloat(e.target.value) || 0;
+                              setProductMaterials(newMaterials);
+                            }}
+                            style={{ flex: 1, padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', color: 'white', fontSize: '13px', textAlign: 'right' }}
+                            min="0"
+                            step="0.1"
+                          />
+                          <span style={{ fontSize: '11px', color: 'var(--text-dim)', width: '20px' }}>g</span>
+                        </div>
+                      );
+                    })}
+                  </div>
 
                  <button className="btn-primary" style={{ width: '100%', height: '54px' }} onClick={handleSave}>Salvar Produto</button>
              </div>

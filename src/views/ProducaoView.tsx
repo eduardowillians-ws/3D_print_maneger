@@ -112,17 +112,24 @@ export default function ProducaoView() {
 
   // Recalcular materiais quando quantidade mudar (se houver produto selecionado)
   useEffect(() => {
+    console.log('UseEffect: selectedProductId=', selectedProductId, 'quantity=', quantity);
     if (selectedProductId) {
+      const qty = parseInt(quantity) || 1;
+      console.log('Recalculando para qty=', qty);
       // Atualiza os pesos baseado na quantidade atual
-      setJobMaterials(prev => prev.map(m => {
-        if (m.materialId && m.weightPerUnit > 0) {
-          const qty = parseInt(quantity) || 1;
-          return { ...m, weight: m.weightPerUnit * qty };
-        }
-        return m;
-      }));
+      setJobMaterials(prev => {
+        console.log('Slots anteriores:', prev);
+        const newMats = prev.map(m => {
+          if (m.materialId && m.weightPerUnit > 0) {
+            return { ...m, weight: m.weightPerUnit * qty };
+          }
+          return m;
+        });
+        console.log('Novos slots:', newMats);
+        return newMats;
+      });
     }
-  }, [quantity, selectedProductId]);
+  }, [quantity]);
 
   const loadClients = async () => {
     const { data } = await clientsApi.getAll();
