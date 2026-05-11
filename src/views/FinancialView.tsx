@@ -65,6 +65,7 @@ export default function FinancialView() {
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     loadTransactions();
@@ -163,7 +164,11 @@ export default function FinancialView() {
       ? year === filterYear 
       : year === filterYear && transMonth === (months.indexOf(filterMonth) - 1);
     
-    return categoryMatch && dateMatch;
+    const searchMatch = searchQuery === '' || 
+      t.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.category.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    return categoryMatch && dateMatch && searchMatch;
   });
 
   const monthTransactions = months.slice(1).map((_, monthIndex) => { // slice(1) para ignorar "Todos"
@@ -416,8 +421,8 @@ export default function FinancialView() {
         <div style={{ padding: '24px', borderBottom: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ fontSize: '18px', fontWeight: 700 }}>Cofre de Transações</h3>
           <div style={{ position: 'relative' }}>
-             <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
-             <input type="text" placeholder="Buscar transação..." style={{ padding: '10px 16px 10px 40px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-glass)', borderRadius: '10px', color: 'white', fontSize: '13px', outline: 'none' }} />
+<Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
+              <input type="text" placeholder="Buscar transação..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ padding: '10px 16px 10px 40px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-glass)', borderRadius: '10px', color: 'white', fontSize: '13px', outline: 'none' }} />
           </div>
         </div>
 
