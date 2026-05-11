@@ -99,11 +99,19 @@ export default function FinancialView() {
     setIsLoading(false);
   };
 
-  const currentMonthIndex = months.indexOf(filterMonth);
-  const previousMonthIndex = currentMonthIndex === 0 ? 11 : currentMonthIndex - 1;
-  const previousMonthYear = currentMonthIndex === 0 ? (parseInt(filterYear) - 1).toString() : filterYear;
+  const currentMonthIndex = filterMonth === 'Todos' ? -1 : months.indexOf(filterMonth) - 1;
+  const previousMonthIndex = currentMonthIndex === -1 ? -1 : (currentMonthIndex === 0 ? 11 : currentMonthIndex - 1);
+  const previousMonthYear = currentMonthIndex === -1 || currentMonthIndex > 0 ? filterYear : (parseInt(filterYear) - 1).toString();
 
   const getMonthStats = (monthIndex: number, year: string) => {
+    if (monthIndex === -1) {
+      return transactions.filter(t => {
+        const dateStr = (t as any).dateRaw || t.date;
+        const dateParts = dateStr.split('-');
+        if (dateParts.length !== 3) return false;
+        return dateParts[0] === year;
+      });
+    }
     return transactions.filter(t => {
       const dateStr = (t as any).dateRaw || t.date;
       const dateParts = dateStr.split('-');
@@ -127,8 +135,9 @@ export default function FinancialView() {
   const previousStats = calculateStats(previousMonthTransactions);
 
   const getChange = (current: number, previous: number) => {
-    if (previous === 0) return current > 0 ? '+100%' : '0%';
-    const change = ((current - previous) / previous) * 100;
+    if (previous === 0 && current === 0) return '0%';
+    if (previous === 0) return current > 0 ? '+100%' : '-100%';
+    const change = ((current - previous) / Math.abs(previous)) * 100;
     return `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`;
   };
 
@@ -136,7 +145,7 @@ export default function FinancialView() {
     receita: currentStats.receita,
     custos: currentStats.custos,
     lucro: currentStats.lucro,
-    ticket: currentStats.receita > 0 ? currentStats.receita / currentMonthTransactions.filter(t => t.type === 'INCOME').length : 0,
+    ticket: currentStats.receita > 0 ? currentStats.receita / Math.max(currentMonthTransactions.filter(t => t.type === 'INCOME').length, 1) : 0,
     changeReceita: getChange(currentStats.receita, previousStats.receita),
     changeCustos: getChange(currentStats.custos, previousStats.custos),
     changeLucro: getChange(currentStats.lucro, previousStats.lucro)
@@ -148,12 +157,11 @@ export default function FinancialView() {
     if (dateParts.length !== 3) return false;
     const year = dateParts[0];
     const transMonth = parseInt(dateParts[1]) - 1;
-    const monthIndex = months.indexOf(filterMonth) - 1; // -1 porque "Todos" é índice 0
     
     const categoryMatch = filterCategory === 'Todas' || t.category === filterCategory;
     const dateMatch = filterMonth === 'Todos' 
       ? year === filterYear 
-      : year === filterYear && transMonth === monthIndex;
+      : year === filterYear && transMonth === (months.indexOf(filterMonth) - 1);
     
     return categoryMatch && dateMatch;
   });
@@ -176,7 +184,7 @@ export default function FinancialView() {
     return Math.round((income / maxValue) * 100);
   });
 
-const currentMonthIndexForHighlight = filterMonth === 'Todos' 
+  const currentMonthIndexForHighlight = filterMonth === 'Todos' 
     ? new Date().getMonth() 
     : months.indexOf(filterMonth) - 1;
   
@@ -187,6 +195,12 @@ const currentMonthIndexForHighlight = filterMonth === 'Todos'
     ticket: stats.ticket.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
     chartValues,
     highlightMonth: currentMonthIndexForHighlight
+  };
+
+  const getChangeColor = (change: string) => {
+    if (change.startsWith('+')) return 'var(--secondary)';
+    if (change.startsWith('-')) return 'var(--error)';
+    return 'var(--text-dim)';
   };
 
   const handleRefresh = () => {
@@ -346,10 +360,10 @@ const currentMonthIndexForHighlight = filterMonth === 'Todos'
       </div>
 
       <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '32px' }}>
-<KPICard title="RECEITA TOTAL" value={`${currencySymbol} ${currentData.receita}`} change={`${stats.changeReceita} vs mês anterior`} icon={<TrendingUp size={18} />} bgColor="rgba(74, 225, 118, 0.05)" accentColor="var(--secondary)" />
-          <KPICard title="CUSTOS TOTAIS" value={`${currencySymbol} ${currentData.custos}`} change={`${stats.changeCustos} vs mês anterior`} icon={<TrendingDown size={18} />} bgColor="rgba(255, 77, 77, 0.05)" accentColor="var(--error)" />
-          <KPICard title="LUCRO LÍQUIDO" value={`${currencySymbol} ${currentData.lucro}`} change={`${stats.changeLucro} vs mês anterior`} icon={<TrendingUp size={18} />} bgColor="rgba(138, 43, 226, 0.05)" accentColor="var(--primary)" />
-          <KPICard title="TICKET MÉDIO" value={`${currencySymbol} ${currentData.ticket}`} change="Por transação" icon={<TrendingUp size={18} />} bgColor="rgba(22, 189, 202, 0.05)" accentColor="var(--accent-cyan)" />
+<KPICard title="RECEITA TOTAL" value={`${currencySymbol} ${currentData.receita}`} change={`${stats.changeReceita} vs mês anterior`} icon={<TrendingUp size={18} />} bgColor="rgba(74, 225, 118, 0.05)" accentColor="var(--secondary)" changeColor={getChangeColor(stats.changeReceita)} />
+          <KPICard title="CUSTOS TOTAIS" value={`${currencySymbol} ${currentData.custos}`} change={`${stats.changeCustos} vs mês anterior`} icon={<TrendingDown size={18} />} bgColor="rgba(255, 77, 77, 0.05)" accentColor="var(--error)" changeColor={getChangeColor(stats.changeCustos)} />
+          <KPICard title="LUCRO LÍQUIDO" value={`${currencySymbol} ${currentData.lucro}`} change={`${stats.changeLucro} vs mês anterior`} icon={<TrendingUp size={18} />} bgColor="rgba(138, 43, 226, 0.05)" accentColor="var(--primary)" changeColor={getChangeColor(stats.changeLucro)} />
+          <KPICard title="TICKET MÉDIO" value={`${currencySymbol} ${currentData.ticket}`} change="Por transação" icon={<TrendingUp size={18} />} bgColor="rgba(22, 189, 202, 0.05)" accentColor="var(--accent-cyan)" changeColor="var(--text-dim)" />
       </div>
 
       <div className="glass-panel" style={{ padding: '32px', borderRadius: '24px', marginBottom: '32px', position: 'relative', zIndex: 1 }}>
@@ -793,7 +807,7 @@ function FinancialPreviewPDF({ transactions, stats, filterMonth, filterYear, cur
   );
 }
 
-function KPICard({ title, value, change, icon, bgColor, accentColor }: any) {
+function KPICard({ title, value, change, icon, bgColor, accentColor, changeColor }: any) {
   return (
     <div className="glass-panel" style={{ padding: '24px', borderRadius: '20px', borderLeft: `4px solid ${accentColor}` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
@@ -802,7 +816,7 @@ function KPICard({ title, value, change, icon, bgColor, accentColor }: any) {
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <h2 style={{ fontSize: '22px', fontWeight: 800 }}>{value}</h2>
-        <span style={{ fontSize: '12px', color: 'var(--secondary)', fontWeight: 700 }}>{change}</span>
+        <span style={{ fontSize: '12px', color: changeColor || 'var(--secondary)', fontWeight: 700 }}>{change}</span>
       </div>
     </div>
   );
