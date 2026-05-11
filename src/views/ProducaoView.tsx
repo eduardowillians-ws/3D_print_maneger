@@ -95,11 +95,11 @@ export default function ProducaoView() {
   const [isNewProduct, setIsNewProduct] = useState(false);
 
   // Estado para materiais do job (até 4 slots) - com peso por unidade
-  const [jobMaterials, setJobMaterials] = useState<{ materialId: string; weight: number; weightPerUnit: number }[]>([
-    { materialId: '', weight: 0, weightPerUnit: 0 },
-    { materialId: '', weight: 0, weightPerUnit: 0 },
-    { materialId: '', weight: 0, weightPerUnit: 0 },
-    { materialId: '', weight: 0, weightPerUnit: 0 }
+  const [jobMaterials, setJobMaterials] = useState<{ materialId: string; materialName: string; weight: number; weightPerUnit: number }[]>([
+    { materialId: '', materialName: '', weight: 0, weightPerUnit: 0 },
+    { materialId: '', materialName: '', weight: 0, weightPerUnit: 0 },
+    { materialId: '', materialName: '', weight: 0, weightPerUnit: 0 },
+    { materialId: '', materialName: '', weight: 0, weightPerUnit: 0 }
   ]);
 
   useEffect(() => {
@@ -407,10 +407,10 @@ alert('Trabalho adicionado à fila!');
     setTargetBed('60');
     setSpeedPercentage('100');
     setJobMaterials([
-      { materialId: '', weight: 0, weightPerUnit: 0 },
-      { materialId: '', weight: 0, weightPerUnit: 0 },
-      { materialId: '', weight: 0, weightPerUnit: 0 },
-      { materialId: '', weight: 0, weightPerUnit: 0 }
+      { materialId: '', materialName: '', weight: 0, weightPerUnit: 0 },
+      { materialId: '', materialName: '', weight: 0, weightPerUnit: 0 },
+      { materialId: '', materialName: '', weight: 0, weightPerUnit: 0 },
+      { materialId: '', materialName: '', weight: 0, weightPerUnit: 0 }
     ]);
   };
 
@@ -651,10 +651,10 @@ const filteredJobs = jobs.filter(j => {
                           setSelectedProductId('');
                           setIsNewProduct(true);
                           setJobMaterials([
-                            { materialId: '', weight: 0, weightPerUnit: 0 },
-                            { materialId: '', weight: 0, weightPerUnit: 0 },
-                            { materialId: '', weight: 0, weightPerUnit: 0 },
-                            { materialId: '', weight: 0, weightPerUnit: 0 }
+                            { materialId: '', materialName: '', weight: 0, weightPerUnit: 0 },
+                            { materialId: '', materialName: '', weight: 0, weightPerUnit: 0 },
+                            { materialId: '', materialName: '', weight: 0, weightPerUnit: 0 },
+                            { materialId: '', materialName: '', weight: 0, weightPerUnit: 0 }
                           ]);
                         } else {
                           setIsNewProduct(false);
@@ -670,12 +670,13 @@ const filteredJobs = jobs.filter(j => {
                           if (prodMaterials && prodMaterials.length > 0) {
                             const newSlots = prodMaterials.map((pm: any) => ({
                               materialId: pm.material_id,
+                              materialName: pm.material?.name || pm.material_name || '',
                               weight: (pm.weight_g || 0) * qty,
                               weightPerUnit: pm.weight_g || 0
                             }));
                             // Preencher slots restantes com vazio
                             while (newSlots.length < 4) {
-                              newSlots.push({ materialId: '', weight: 0, weightPerUnit: 0 });
+                              newSlots.push({ materialId: '', materialName: '', weight: 0, weightPerUnit: 0 });
                             }
                             setJobMaterials(newSlots);
                           } else if (product?.materialWeight && product.materialWeight > 0) {
@@ -813,38 +814,79 @@ const filteredJobs = jobs.filter(j => {
                   <label style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: '12px', display: 'block' }}>
                     Materiais (até 4 slots - AMS)
                   </label>
-                  {jobMaterials.map((slot, idx) => (
-                    <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
-                      <select 
-                        value={slot.materialId}
-                        onChange={e => {
-                          const newMaterials = [...jobMaterials];
-                          newMaterials[idx].materialId = e.target.value;
-                          setJobMaterials(newMaterials);
-                        }}
-                        style={{ flex: 2, padding: '8px', borderRadius: '8px', background: '#1a1a1a', border: '1px solid var(--border-glass)', color: 'white', fontSize: '13px' }}
-                      >
-                        <option value="" style={{ background: '#1a1a1a', color: '#888' }}>Slot {idx + 1} - Vazio</option>
-                        {materialsList.map(m => (
-                          <option key={m.id} value={m.id} style={{ background: '#1a1a1a', color: 'white' }}>{m.name} {m.color ? `(${m.color})` : ''}</option>
-                        ))}
-                      </select>
-                      <input 
-                        type="number" 
-                        placeholder="g"
-                        value={slot.weight || ''}
-                        onChange={e => {
-                          const newMaterials = [...jobMaterials];
-                          const newWeight = parseInt(e.target.value) || 0;
-                          newMaterials[idx].weight = newWeight;
-                          newMaterials[idx].weightPerUnit = newWeight;
-                          setJobMaterials(newMaterials);
-                        }}
-                        style={{ flex: 1, padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', color: 'white', fontSize: '13px', textAlign: 'right' }}
-                      />
-                      <span style={{ fontSize: '11px', color: 'var(--text-dim)', width: '20px' }}>g</span>
-                    </div>
-                  ))}
+                  {jobMaterials.map((slot, idx) => {
+                    const selectedMaterial = materialsList.find(m => m.id === slot.materialId);
+                    const displayName = slot.materialName || selectedMaterial?.name || '';
+                    return (
+                      <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                        <div style={{ flex: 2, position: 'relative' }}>
+                          {slot.materialId ? (
+                            <div style={{ 
+                              padding: '8px 12px', 
+                              borderRadius: '8px', 
+                              background: 'rgba(138, 43, 226, 0.15)', 
+                              border: '1px solid var(--primary)',
+                              color: 'var(--primary)',
+                              fontSize: '13px',
+                              fontWeight: 600,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between'
+                            }}>
+                              <span>
+                                {displayName}
+                                {slot.weightPerUnit > 0 && ` (${slot.weightPerUnit}g/un)`}
+                              </span>
+                              <button 
+                                onClick={() => {
+                                  const newMaterials = [...jobMaterials];
+                                  newMaterials[idx] = { materialId: '', materialName: '', weight: 0, weightPerUnit: 0 };
+                                  setJobMaterials(newMaterials);
+                                }}
+                                style={{ background: 'transparent', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '2px', fontSize: '16px' }}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ) : (
+                            <select 
+                              value={slot.materialId}
+                              onChange={e => {
+                                const newMaterials = [...jobMaterials];
+                                const mat = materialsList.find(m => m.id === e.target.value);
+                                newMaterials[idx] = { 
+                                  ...newMaterials[idx], 
+                                  materialId: e.target.value,
+                                  materialName: mat?.name || ''
+                                };
+                                setJobMaterials(newMaterials);
+                              }}
+                              style={{ width: '100%', padding: '8px', borderRadius: '8px', background: '#1a1a1a', border: '1px solid var(--border-glass)', color: 'white', fontSize: '13px' }}
+                            >
+                              <option value="" style={{ background: '#1a1a1a', color: '#888' }}>Slot {idx + 1} - Selecione...</option>
+                              {materialsList.map(m => (
+                                <option key={m.id} value={m.id} style={{ background: '#1a1a1a', color: 'white' }}>{m.name} {m.color ? `(${m.color})` : ''}</option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                        <input 
+                          type="number" 
+                          placeholder="g"
+                          value={slot.weight || ''}
+                          onChange={e => {
+                            const newMaterials = [...jobMaterials];
+                            const newWeight = parseInt(e.target.value) || 0;
+                            newMaterials[idx].weight = newWeight;
+                            newMaterials[idx].weightPerUnit = slot.materialId ? newWeight : 0;
+                            setJobMaterials(newMaterials);
+                          }}
+                          style={{ flex: 1, padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', color: 'white', fontSize: '13px', textAlign: 'right' }}
+                        />
+                        <span style={{ fontSize: '11px', color: 'var(--text-dim)', width: '20px' }}>g</span>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <button className="btn-primary" style={{ width: '100%', height: '54px', fontSize: '16px' }} onClick={handleCreateJob}>

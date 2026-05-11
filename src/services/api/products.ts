@@ -50,11 +50,11 @@ export const productsApi = {
     };
   },
 
-  // Materials por produto
-  async getMaterialsByProduct(productId: string): Promise<ApiResponse<ProductMaterial>> {
+  // Materials por produto - com dados do material
+  async getMaterialsByProduct(productId: string): Promise<ApiResponse<ProductMaterial & { material_name?: string; material_color?: string }>> {
     const { data, error } = await supabase
       .from('product_materials')
-      .select('*')
+      .select('*, material:material_id(name, color)')
       .eq('product_id', productId)
       .order('slot_position', { ascending: true });
     return { data, error };
