@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Wallet, TrendingUp, Printer, FileText, ChevronDown, Filter, AlertTriangle, Settings, Clock, Layers, RefreshCw, MoreVertical, Loader2 } from 'lucide-react';
+import { Wallet, TrendingUp, Printer, FileText, ChevronDown, Filter, AlertTriangle, Settings, Clock, Layers, RefreshCw, MoreVertical, Loader2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
 import dashboardApi from '../services/api/dashboard';
@@ -91,6 +91,11 @@ export default function PainelView() {
             onToggle={() => setOpenDropdown(openDropdown === 'year' ? null : 'year')} 
             onSelect={(y: string) => { setSelectedYear(y); setOpenDropdown(null); handleRefresh(); }} 
           />
+          {selectedMonth !== currentMonthName && (
+            <button onClick={() => { setSelectedMonth(currentMonthName); setOpenDropdown(null); handleRefresh(); }} style={filterIconButtonStyle} title="Limpar Filtro">
+              <X size={16} />
+            </button>
+          )}
           <button onClick={handleRefresh} style={filterIconButtonStyle} title="Sincronizar Dados">
             <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
           </button>

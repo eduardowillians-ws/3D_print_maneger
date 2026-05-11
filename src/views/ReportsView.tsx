@@ -47,10 +47,14 @@ export default function ReportsView() {
   const loadReportData = async () => {
     setIsLoading(true);
     try {
+      console.log('Loading report data for:', selectedMonth, selectedYear);
       const dashboardData = await dashboardApi.getStats(selectedMonth, selectedYear);
+      console.log('Dashboard data:', dashboardData);
 
-      const monthIndex = months.indexOf(materialMonth) - 1;
-      const matMonthIndex = materialMonth === 'Todos' ? undefined : monthIndex;
+      // Calculate monthIndex for API calls (handle "Todos" separately)
+      const monthListForAPI = ['Todos', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+      const monthIndexForAPI = materialMonth === 'Todos' ? -1 : monthListForAPI.indexOf(materialMonth) - 1;
+      const matMonthIndex = materialMonth === 'Todos' ? undefined : monthIndexForAPI;
       const matYear = materialYear;
 
       const [materialsData, topClients, topProducts] = await Promise.all([
@@ -58,6 +62,8 @@ export default function ReportsView() {
         productionApi.getTopClients(matMonthIndex, matYear, 5),
         productionApi.getTopProducts(matMonthIndex, matYear, 5)
       ]);
+
+      console.log('Materials:', materialsData, 'Top Clients:', topClients, 'Top Products:', topProducts);
 
       const totalWeight = materialsData.reduce((acc: number, m: any) => acc + m.total_weight, 0);
 
@@ -68,21 +74,29 @@ export default function ReportsView() {
         pct: totalWeight > 0 ? Math.round((m.total_weight / totalWeight) * 100) : 0
       }));
 
+      // Calculate totalPieces from productionData
+      const totalPieces = dashboardData.productionData?.reduce((acc: number, d: any) => acc + d.val, 0) || 0;
+      
+      // Calculate hoursPrinted based on days in month
+      const daysInMonth = materialMonth === 'Todos' ? 365 : 30;
+      const hoursPrinted = (dashboardData.impressorasAtivas || 0) * 24 * daysInMonth;
+
       setReportData({
         revenue: dashboardData.receita.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
         profit: dashboardData.lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
         energyCost: (dashboardData.custos * 0.25).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
         maintenanceCost: (dashboardData.custos * 0.35).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
         otherCosts: (dashboardData.custos * 0.40).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-        hoursPrinted: dashboardData.impressorasAtivas * 24 * 30,
+        hoursPrinted: hoursPrinted,
         topClient: topClients.length > 0 ? topClients[0].name : 'Sem dados',
         topProduct: topProducts.length > 0 ? topProducts[0].name : 'Sem dados',
-        totalPieces: dashboardData.productionData?.reduce((acc: number, d: any) => acc + d.val, 0) || 0,
+        totalPieces: totalPieces,
         materialMix,
         topClients,
         topProducts,
         maintenanceLog: []
       });
+      console.log('Report data set:', reportData);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
     }
@@ -103,7 +117,7 @@ export default function ReportsView() {
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ paddingBottom: '40px' }}>
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ minHeight: 'calc(100vh - 128px)', paddingTop: '0' }}>
       <div style={headerContainerStyle}>
         <div>
           <h1 style={{ fontSize: '24px', marginBottom: '4px' }}>Relatórios Estratégicos</h1>
