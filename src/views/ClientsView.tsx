@@ -26,6 +26,9 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
 import { clientsApi } from '../services/api/clients';
+import { quotesApi } from '../services/api/quotes';
+import { productionApi } from '../services/api/production';
+import { transactionsApi } from '../services/api/transactions';
 
 interface Client {
   id: string;
@@ -38,6 +41,15 @@ interface Client {
   status: 'ATIVO' | 'INATIVO' | 'SUSPENSO';
   color: string;
   since: string;
+}
+
+interface OrderItem {
+  id: string;
+  product: string;
+  date: string;
+  status: string;
+  value: number;
+  type: 'quote' | 'production' | 'transaction';
 }
 
 export default function ClientsView() {
@@ -72,27 +84,43 @@ export default function ClientsView() {
 
   const loadClients = async () => {
     setIsLoading(true);
-    const { data, error } = await clientsApi.getAll();
-    if (error) {
-      console.error('Erro ao carregar clientes:', error.message);
-      setIsLoading(false);
-      return;
-    }
-    
-    if (data) {
-      const mappedData: Client[] = data.map(c => ({
-        id: c.id,
-        name: c.name,
-        initials: c.name.substring(0, 2).toUpperCase(),
-        email: c.email || '',
-        phone: c.phone || '',
-        orders: 0,
-        ltv: 0,
-        status: 'ATIVO' as const,
-        color: '#8A2BE2',
-        since: new Date(c.created_at).toLocaleDateString('pt-BR')
-      }));
-      setClients(mappedData);
+    try {
+      const [clientsRes, quotesRes, transactionsRes] = await Promise.all([
+        clientsApi.getAll(),
+        quotesApi.getAll(),
+        transactionsApi.getAll()
+      ]);
+
+      if (clientsRes.data) {
+        const mappedData: Client[] = clientsRes.data.map((c: any) => {
+          const clientQuotes = quotesRes.data?.filter((q: any) => q.client_id === c.id) || [];
+          const clientTransactions = transactionsRes.data?.filter((t: any) => 
+            t.description?.toLowerCase().includes(c.name.toLowerCase())
+          ) || [];
+
+          const ltv = clientQuotes
+            .filter((q: any) => q.status === 'PAGO' || q.status === 'APROVADO')
+            .reduce((acc: number, q: any) => acc + (q.total_value || 0), 0);
+
+          const totalOrders = clientQuotes.length + clientTransactions.filter((t: any) => t.type === 'INCOME').length;
+
+          return {
+            id: c.id,
+            name: c.name,
+            initials: c.name.substring(0, 2).toUpperCase(),
+            email: c.email || '',
+            phone: c.phone || '',
+            orders: totalOrders,
+            ltv,
+            status: 'ATIVO' as const,
+            color: '#8A2BE2',
+            since: new Date(c.created_at).toLocaleDateString('pt-BR')
+          };
+        });
+        setClients(mappedData);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar clientes:', error);
     }
     setIsLoading(false);
   };
@@ -328,14 +356,95 @@ const handleDelete = async (id: string) => {
 
 function HistoryDrawer({ client, onClose }: { client: Client, onClose: () => void }) {
   const { currencySymbol } = useSettings();
-  
-  // Mock de histórico de pedidos
-  const orders = [
-    { id: 'ORD-4392', product: 'Engrenagens Helicoidais (12x)', date: '10/04/2024', status: 'CONCLUÍDO', val: 450.00 },
-    { id: 'ORD-4210', product: 'Prototipagem Case Eletrônica', date: '28/03/2024', status: 'CONCLUÍDO', val: 1200.00 },
-    { id: 'ORD-4105', product: 'Suportes Industriais TPU', date: '05/03/2024', status: 'CONCLUÍDO', val: 850.50 },
-    { id: 'ORD-3988', product: 'Lote Conectores Nylon CF', date: '12/02/2024', status: 'CONCLUÍDO', val: 2300.00 },
-  ];
+  const [orders, setOrders] = useState<OrderItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [totalLTV, setTotalLTV] = useState(0);
+
+  useEffect(() => {
+    loadClientHistory();
+  }, [client.id]);
+
+  const loadClientHistory = async () => {
+    setIsLoading(true);
+    try {
+      const [quotesRes, productionRes, transactionsRes] = await Promise.all([
+        quotesApi.getAll(),
+        productionApi.getAll(),
+        transactionsApi.getAll()
+      ]);
+
+      const allOrders: OrderItem[] = [];
+      let ltvTotal = 0;
+
+      // Quotes do cliente
+      if (quotesRes.data) {
+        const clientQuotes = quotesRes.data.filter((q: any) => q.client_id === client.id);
+        clientQuotes.forEach((q: any) => {
+          const date = new Date(q.created_at).toLocaleDateString('pt-BR');
+          const statusMap: any = { 'PENDENTE': 'PENDENTE', 'APROVADO': 'APROVADO', 'REJEITADO': 'REJEITADO', 'PAGO': 'PAGO' };
+          allOrders.push({
+            id: q.id.substring(0, 8).toUpperCase(),
+            product: q.description || 'Orçamento sem descrição',
+            date,
+            status: statusMap[q.status] || q.status,
+            value: q.total_value || 0,
+            type: 'quote'
+          });
+          if (q.status === 'PAGO' || q.status === 'APROVADO') {
+            ltvTotal += q.total_value || 0;
+          }
+        });
+      }
+
+      // Transações do cliente (vendas)
+      if (transactionsRes.data) {
+        const clientTransactions = transactionsRes.data.filter((t: any) => 
+          t.description?.toLowerCase().includes(client.name.toLowerCase()) ||
+          t.category === 'Vendas'
+        );
+        clientTransactions.forEach((t: any) => {
+          const date = new Date(t.date).toLocaleDateString('pt-BR');
+          const statusMap: any = { 'PENDENTE': 'PENDENTE', 'CONCLUÍDO': 'CONCLUÍDO', 'ESTORNADO': 'ESTORNADO' };
+          allOrders.push({
+            id: t.id.substring(0, 8).toUpperCase(),
+            product: t.description || 'Transação',
+            date,
+            status: statusMap[t.status] || t.status,
+            value: t.value || 0,
+            type: 'transaction'
+          });
+          if (t.type === 'INCOME' && t.status === 'CONCLUÍDO') {
+            ltvTotal += t.value || 0;
+          }
+        });
+      }
+
+      // Ordenar por data mais recente
+      allOrders.sort((a, b) => {
+        const dateA = new Date(a.date.split('/').reverse().join('-'));
+        const dateB = new Date(b.date.split('/').reverse().join('-'));
+        return dateB.getTime() - dateA.getTime();
+      });
+
+      setOrders(allOrders.slice(0, 20)); // Limitar a 20 itens
+      setTotalLTV(ltvTotal);
+    } catch (error) {
+      console.error('Erro ao carregar histórico:', error);
+    }
+    setIsLoading(false);
+  };
+
+  const getStatusColor = (status: string) => {
+    const colors: any = {
+      'CONCLUÍDO': { bg: 'rgba(34, 197, 94, 0.1)', color: '#22C55E' },
+      'PAGO': { bg: 'rgba(34, 197, 94, 0.1)', color: '#22C55E' },
+      'APROVADO': { bg: 'rgba(34, 197, 94, 0.1)', color: '#22C55E' },
+      'PENDENTE': { bg: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B' },
+      'REJEITADO': { bg: 'rgba(239, 68, 68, 0.1)', color: '#EF4444' },
+      'ESTORNADO': { bg: 'rgba(239, 68, 68, 0.1)', color: '#EF4444' }
+    };
+    return colors[status] || { bg: 'rgba(255,255,255,0.05)', color: '#888' };
+  };
 
   return (
     <>
@@ -366,32 +475,48 @@ function HistoryDrawer({ client, onClose }: { client: Client, onClose: () => voi
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '32px' }}>
            <div style={metricBoxStyle}>
               <span style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600 }}>LTV TOTAL</span>
-              <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--secondary)' }}>{currencySymbol} {client.ltv.toLocaleString('pt-BR')}</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--secondary)' }}>{currencySymbol} {totalLTV.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
            </div>
            <div style={metricBoxStyle}>
               <span style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600 }}>PEDIDOS</span>
-              <div style={{ fontSize: '18px', fontWeight: 800 }}>{client.orders} unidades</div>
+              <div style={{ fontSize: '18px', fontWeight: 800 }}>{orders.length} registros</div>
            </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, overflowY: 'auto' }}>
           <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-muted)' }}>Últimos Pedidos</h3>
-          {orders.map(order => (
-            <div key={order.id} style={orderCardStyle}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary)' }}>#{order.id}</span>
-                <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(34, 197, 94, 0.1)', color: '#22C55E', fontWeight: 800 }}>{order.status}</span>
-              </div>
-              <p style={{ fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>{order.product}</p>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-dim)' }}>
-                <span>{order.date}</span>
-                <span style={{ fontWeight: 700, color: 'white' }}>{currencySymbol} {order.val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
+          
+          {isLoading ? (
+            <div style={{ textAlign: 'center', padding: '40px' }}>
+              <Loader2 size={32} className="animate-spin" style={{ animation: 'spin 1s linear infinite', marginRight: '12px' }} />
+              <p style={{ marginTop: '12px', color: 'var(--text-dim)' }}>Carregando histórico...</p>
             </div>
-          ))}
+          ) : orders.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+              <History size={48} style={{ opacity: 0.3, marginBottom: '12px' }} />
+              <p>Nenhum registro encontrado</p>
+            </div>
+          ) : (
+            orders.map(order => {
+              const statusStyle = getStatusColor(order.status);
+              return (
+                <div key={`${order.type}-${order.id}`} style={orderCardStyle}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary)' }}>#{order.id}</span>
+                    <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: statusStyle.bg, color: statusStyle.color, fontWeight: 800 }}>{order.status}</span>
+                  </div>
+                  <p style={{ fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>{order.product}</p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-dim)' }}>
+                    <span>{order.date}</span>
+                    <span style={{ fontWeight: 700, color: 'white' }}>{currencySymbol} {order.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
 
-        <button className="btn-primary" style={{ width: '100%', height: '54px', marginTop: 'auto' }} onClick={() => alert('Novo orçamento para este cliente...')}>
+        <button className="btn-primary" style={{ width: '100%', height: '54px', marginTop: '24px' }} onClick={() => alert('Novo orçamento para este cliente...')}>
           <Plus size={18} /> Novo Orçamento
         </button>
       </motion.div>
