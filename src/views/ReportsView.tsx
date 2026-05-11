@@ -117,7 +117,7 @@ export default function ReportsView() {
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ minHeight: 'calc(100vh - 128px)', paddingTop: '0' }}>
+    <div style={{ minHeight: 'calc(100vh - 128px)', padding: '0 0 40px 0' }}>
       <div style={headerContainerStyle}>
         <div>
           <h1 style={{ fontSize: '24px', marginBottom: '4px' }}>Relatórios Estratégicos</h1>
@@ -245,14 +245,8 @@ export default function ReportsView() {
           </div>
         </>
       )}
-
-      <AnimatePresence>
-        {showPreview && reportData && (
-          <ReportPreview month={selectedMonth} year={selectedYear} data={reportData} onClose={() => setShowPreview(false)} />
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
+     </div>
+   );
 }
 
 function ReportPreview({ month, year, data, onClose }: any) {
