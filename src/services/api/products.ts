@@ -52,21 +52,43 @@ export const productsApi = {
 
   // Materials por produto - com dados do material via relação
   async getMaterialsByProduct(productId: string): Promise<ApiResponse<ProductMaterial>> {
-    const { data, error } = await supabase
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+
+    let query = supabase
       .from('product_materials')
       .select('*, material:materials(id, name, color)')
       .eq('product_id', productId)
       .order('slot_position', { ascending: true });
     
-    // Se não encontrar via relação, tenta buscar direto
+    // Se tem user_id, filtrar para evitar 403
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('Erro ao buscar materials:', error);
+    }
+    
+    // Se não encontrou via relação, tenta buscar direto
     if (!data || data.length === 0) {
-      const { data: directData, error: directError } = await supabase
+      let directQuery = supabase
         .from('product_materials')
         .select('*')
         .eq('product_id', productId)
         .order('slot_position', { ascending: true });
       
-      if (directError) return { data: null, error: directError };
+      if (userId) {
+        directQuery = directQuery.eq('user_id', userId);
+      }
+      
+      const { data: directData, error: directError } = await directQuery;
+      
+      if (directError) {
+        console.error('Erro direto:', directError);
+        return { data: null, error: directError };
+      }
       return { data: directData, error: null };
     }
     
@@ -74,9 +96,18 @@ export const productsApi = {
   },
 
   async addMaterial(material: Partial<ProductMaterial>): Promise<ApiResponseSingle<ProductMaterial>> {
+    // Incluir user_id na inserção
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+    
+    const materialWithUser = {
+      ...material,
+      user_id: userId
+    };
+
     const { data, error } = await supabase
       .from('product_materials')
-      .insert(material)
+      .insert(materialWithUser)
       .select()
       .single();
     return { data, error };
