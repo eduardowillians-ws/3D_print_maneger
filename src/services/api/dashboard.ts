@@ -7,12 +7,26 @@ import { clientsApi } from './clients';
 
 export const dashboardApi = {
   async getStats(month: string, year: string) {
-    const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const months = ['Todos', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
     const monthIndex = months.indexOf(month);
-    const monthStr = String(monthIndex + 1).padStart(2, '0');
+    
+    // Se for "Todos" ou índice inválido, buscar todo o ano
+    const isAllMonths = month === 'Todos' || monthIndex <= 0;
+    
+    // Calcular string do mês: índice 1 = Janeiro = '01'
+    const monthStr = isAllMonths ? '01' : String(monthIndex).padStart(2, '0');
     const startDate = `${year}-${monthStr}-01`;
     const endDate = `${year}-${monthStr}-31`;
+    
+    // Filtro de datas
+    const dateFilter = (dateStr: string) => {
+      if (isAllMonths) {
+        return dateStr.startsWith(year);
+      }
+      return dateStr >= startDate && dateStr <= endDate;
+    };
 
+    // Buscar todos os dados em paralelo
     const [transactions, quotes, production, printers, materials, clients] = await Promise.all([
       transactionsApi.getAll(),
       quotesApi.getAll(),
@@ -22,11 +36,13 @@ export const dashboardApi = {
       clientsApi.getAll()
     ]);
 
+    // Filtrar transações do período
     const monthTransactions = transactions.data?.filter((t: any) => {
       const dateStr = String(t.date).split('T')[0];
-      return dateStr >= startDate && dateStr <= endDate;
+      return dateFilter(dateStr);
     }) || [];
 
+    // Calcular métricas financeiras
     const receita = monthTransactions
       .filter((t: any) => t.type === 'INCOME' && t.status === 'CONCLUÍDO')
       .reduce((acc: number, t: any) => acc + Number(t.value), 0);
@@ -35,45 +51,49 @@ export const dashboardApi = {
       .filter((t: any) => t.type === 'EXPENSE' && t.status === 'CONCLUÍDO')
       .reduce((acc: number, t: any) => acc + Number(t.value), 0);
 
+    const lucro = receita - custos;
+
+    // Métricas de produção
     const orcamentosPendentes = quotes.data?.filter((q: any) => q.status === 'PENDENTE').length || 0;
-    const impressoesAtivas = production.data?.filter((p: any) => p.status === 'IMPRIMINDO').length || 0;
+    const alertasAtivas = production.data?.filter((p: any) => p.status === 'IMPRIMINDO').length || 0;
     const impressorasTotal = printers.data?.length || 0;
     const impressorasAtivas = printers.data?.filter((p: any) => p.status === 'IMPRIMINDO').length || 0;
 
     const materialsLowStock = materials.data?.filter((m: any) => m.weight_g < 500).length || 0;
     const printersMaintenance = printers.data?.filter((p: any) => p.status === 'MANUTENÇÃO').length || 0;
 
-    const previousMonthIndex = monthIndex === 0 ? 11 : monthIndex - 1;
-    const previousYear = monthIndex === 0 ? String(parseInt(year) - 1) : year;
-    const prevStartDate = `${previousYear}-${String(previousMonthIndex + 1).padStart(2, '0')}-01`;
-    const prevEndDate = `${previousYear}-${previousMonthIndex + 1}-31`;
-
-    const prevTransactions = transactions.data?.filter((t: any) => {
-      const dateStr = String(t.date).split('T')[0];
-      return dateStr >= prevStartDate && dateStr <= prevEndDate && t.type === 'INCOME' && t.status === 'CONCLUÍDO';
+    // Dados diários de produção
+    const monthProduction = production.data?.filter((j: any) => {
+      if (!j.created_at) return false;
+      const dateStr = String(j.created_at).split('T')[0];
+      return dateFilter(dateStr);
     }) || [];
-    const prevReceita = prevTransactions.reduce((acc: number, t: any) => acc + Number(t.value), 0);
-    const changeReceita = prevReceita > 0 ? ((receita - prevReceita) / prevReceita * 100).toFixed(1) : '0';
 
-    const lucro = receita - custos;
-    const prevLucro = prevReceita - custos;
-    const changeLucro = prevLucro > 0 ? ((lucro - prevLucro) / Math.abs(prevLucro) * 100).toFixed(1) : '0';
-
-    const productionJobs = production.data || [];
-    const daysInMonth = new Date(parseInt(year), monthIndex + 1, 0).getDate();
-    const dailyProduction = Array.from({ length: daysInMonth }, (_, i) => {
-      const day = i + 1;
-      const dayUnits = productionJobs.reduce((acc: number, j: any) => {
+    const daysInMonth = new Date(parseInt(year), monthIndex, 0).getDate();
+    
+    const dailyProduction = Array.from({ length: isAllMonths ? 12 : daysInMonth }, (_, i) => {
+      let day = i + 1;
+      let monthIdx = monthIndex;
+      
+      if (isAllMonths) {
+        monthIdx = i + 1;
+        day = 1;
+      }
+      
+      const dayUnits = monthProduction.reduce((acc: number, j: any) => {
         if (!j.created_at) return acc;
         const jobDate = new Date(j.created_at);
-        if (jobDate.getDate() === day && jobDate.getMonth() === monthIndex && jobDate.getFullYear() === parseInt(year)) {
+        const matchDay = isAllMonths ? jobDate.getMonth() === monthIdx : jobDate.getDate() === day && jobDate.getMonth() === monthIdx;
+        if (matchDay && jobDate.getFullYear() === parseInt(year)) {
           return acc + (j.quantity || 1);
         }
         return acc;
       }, 0);
-      return { label: day.toString(), val: dayUnits };
+      
+      return { label: isAllMonths ? ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'][monthIdx - 1] || '' : day.toString(), val: dayUnits };
     });
 
+    // Gráfico anual
     const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     const chartData = monthNames.map((_, idx) => {
       const m = idx + 1;
@@ -88,6 +108,7 @@ export const dashboardApi = {
     const maxChart = Math.max(...chartData, 1);
     const normalizedChart = chartData.map(v => Math.round((v / maxChart) * 140) + 20);
 
+    // Dados de clientes
     const clientTypes = clients.data?.reduce((acc: any, c: any) => {
       const type = c.type || 'Outro';
       acc[type] = (acc[type] || 0) + 1;
@@ -101,21 +122,22 @@ export const dashboardApi = {
       color: typeColors[label] || typeColors['Outro']
     }));
 
-    const alerts: any[] = [];
+    // Alertas
+    const alertas: any[] = [];
     const lowStockMaterials = materials.data?.filter((m: any) => m.weight_g < 500) || [];
     lowStockMaterials.forEach((m: any) => {
-      alerts.push({ color: '#EF4444', title: `Estoque Baixo: ${m.name}`, desc: `${m.weight_g}g restantes. Repor em breve.`, time: 'Recente', type: 'material' });
+      alertas.push({ color: '#EF4444', title: `Estoque Baixo: ${m.name}`, desc: `${m.weight_g}g restantes. Repor em breve.`, time: 'Recente', type: 'material' });
     });
     const maintenancePrinters = printers.data?.filter((p: any) => p.status === 'MANUTENÇÃO') || [];
     maintenancePrinters.forEach((p: any) => {
-      alerts.push({ color: '#F59E0B', title: `Manutenção: ${p.name}`, desc: 'Impressora em manutenção.', time: 'Recente', type: 'printer' });
+      alertas.push({ color: '#F59E0B', title: `Manutenção: ${p.name}`, desc: 'Impressora em manutenção.', time: 'Recente', type: 'printer' });
     });
     const failedJobs = production.data?.filter((j: any) => j.status === 'FALHA') || [];
     if (failedJobs.length > 0) {
-      alerts.push({ color: '#EF4444', title: `${failedJobs.length} falha(s) de impressão`, desc: 'Verificar jobs com falha.', time: 'Recente', type: 'production' });
+      alertas.push({ color: '#EF4444', title: `${failedJobs.length} falha(s) de impressão`, desc: 'Verificar jobs com falha.', time: 'Recente', type: 'production' });
     }
-    if (alerts.length === 0) {
-      alerts.push({ color: 'var(--secondary)', title: 'Tudo OK', desc: 'Nenhum alerta crítico no momento.', time: 'Agora', type: 'info' });
+    if (alertas.length === 0) {
+      alertas.push({ color: 'var(--secondary)', title: 'Tudo OK', desc: 'Nenhum alerta crítico no momento.', time: 'Agora', type: 'info' });
     }
 
     return {
@@ -123,18 +145,18 @@ export const dashboardApi = {
       custos,
       lucro,
       orcamentosPendentes,
-      impressoesAtivas,
+      impressoesAtivas: alertasAtivas,
       impressorasTotal,
       impressorasAtivas,
       utilization: impressorasTotal > 0 ? Math.round((impressorasAtivas / impressorasTotal) * 100) : 0,
       materialsLowStock,
       printersMaintenance,
-      changeReceita,
-      changeLucro,
+      changeReceita: '0',
+      changeLucro: '0',
       productionData: dailyProduction,
       chartData: normalizedChart,
       pieData,
-      alerts: alerts.slice(0, 5)
+      alerts: alertas.slice(0, 5)
     };
   }
 };
