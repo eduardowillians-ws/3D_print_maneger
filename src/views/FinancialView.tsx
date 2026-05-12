@@ -17,7 +17,8 @@ import {
   ChevronDown,
   RotateCcw,
   Loader2,
-  FileText
+  FileText,
+  CheckCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
@@ -469,7 +470,11 @@ export default function FinancialView() {
                             {activeActions === t.id && (
                               <motion.div initial={{ opacity: 0, scale: 0.9, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 10 }} style={actionsDropdownStyle}>
                                  <div style={dropdownItemStyle} onClick={() => startEdit(t)}><Edit2 size={14} /> Editar</div>
-                                 <div style={dropdownItemStyle} onClick={() => handleStatusChange(t.id, 'ESTORNADO')}><RotateCcw size={14} /> Estornar</div>
+                                 {t.status === 'PENDENTE' ? (
+                                   <div style={{ ...dropdownItemStyle, color: 'var(--secondary)' }} onClick={() => handleStatusChange(t.id, 'CONCLUÍDO')}><CheckCircle size={14} /> Concluir</div>
+                                 ) : (
+                                   <div style={dropdownItemStyle} onClick={() => handleStatusChange(t.id, 'ESTORNADO')}><RotateCcw size={14} /> Estornar</div>
+                                 )}
                                  <div style={{ ...dropdownItemStyle, color: 'var(--error)' }} onClick={() => handleDeleteTransaction(t.id)}><Trash2 size={14} /> Excluir</div>
                               </motion.div>
                             )}
