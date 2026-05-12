@@ -77,7 +77,7 @@ export const dashboardApi = {
       
       if (isAllMonths) {
         monthIdx = i + 1;
-        day = 1;
+        day = 1; // Always day 1 when aggregating by month
       }
       
       const dayUnits = monthProduction.reduce((acc: number, j: any) => {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Wallet, TrendingUp, Printer, FileText, ChevronDown, Filter, AlertTriangle, Settings, Clock, Layers, RefreshCw, MoreVertical, Loader2, X } from 'lucide-react';
+import { Wallet, TrendingUp, Printer, FileText, ChevronDown, Filter, AlertTriangle, Settings, Clock, Layers, RefreshCw, MoreVertical, Loader2, X, Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
 import dashboardApi from '../services/api/dashboard';
@@ -91,11 +91,6 @@ export default function PainelView() {
             onToggle={() => setOpenDropdown(openDropdown === 'year' ? null : 'year')} 
             onSelect={(y: string) => { setSelectedYear(y); setOpenDropdown(null); handleRefresh(); }} 
           />
-          {selectedMonth !== currentMonthName && (
-            <button onClick={() => { setSelectedMonth(currentMonthName); setOpenDropdown(null); handleRefresh(); }} style={filterIconButtonStyle} title="Limpar Filtro">
-              <X size={16} />
-            </button>
-          )}
           <button onClick={handleRefresh} style={filterIconButtonStyle} title="Sincronizar Dados">
             <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
           </button>
@@ -126,12 +121,14 @@ export default function PainelView() {
             </div>
           </div>
           
-          <div style={{ height: '200px', display: 'flex', alignItems: 'flex-end', gap: '8px', padding: '0 10px' }}>
+          <div style={{ height: '200px', display: 'flex', alignItems: 'flex-end', gap: '6px', padding: '0 10px' }}>
             {data.chartData.map((value: number, i: number) => {
               const isCurrent = i === new Date().getMonth() && selectedYear === String(new Date().getFullYear());
               const maxVal = Math.max(...data.chartData, 1);
               const receitaHeight = Math.round((value / maxVal) * 100);
-              const lucroHeight = Math.round((value * 0.4 / maxVal) * 100);
+              const lucroValue = Math.round(value * 0.4);
+              const lucroHeight = Math.round((lucroValue / maxVal) * 100);
+              const hasData = value > 0;
               
               return (
                 <div key={i} style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', position: 'relative' }}>
@@ -139,53 +136,56 @@ export default function PainelView() {
                   <motion.div
                     key={`receita-${selectedMonth}-${selectedYear}-${i}`}
                     initial={{ height: 0 }}
-                    animate={{ height: `${receitaHeight}%` }}
+                    animate={{ height: `${Math.max(receitaHeight, hasData ? 5 : 0)}%` }}
                     transition={{ duration: 0.8, delay: i * 0.05 }}
                     style={{
                       width: '100%',
-                      background: isCurrent ? 'var(--primary)' : 'rgba(138, 43, 226, 0.7)',
+                      background: isCurrent ? 'var(--primary)' : hasData ? 'rgba(138, 43, 226, 0.7)' : 'rgba(138, 43, 226, 0.15)',
                       borderRadius: '4px 4px 0 0',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      minHeight: value > 0 ? '20px' : '0',
+                      minHeight: '20px',
                       position: 'relative',
                       zIndex: 2
                     }}
                   >
-                    {value > 0 && (
-                      <span style={{ fontSize: '8px', fontWeight: 700, color: 'white', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+                    {hasData && (
+                      <span style={{ fontSize: '7px', fontWeight: 700, color: 'white', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
                         {value >= 1000 ? (value/1000).toFixed(0)+'k' : value}
                       </span>
                     )}
                   </motion.div>
                   
                   {/* Barra de Lucro (Verde) */}
-                  <motion.div
-                    key={`lucro-${selectedMonth}-${selectedYear}-${i}`}
-                    initial={{ height: 0 }}
-                    animate={{ height: `${lucroHeight}%` }}
-                    transition={{ duration: 0.8, delay: i * 0.05 + 0.2 }}
-                    style={{
-                      width: '100%',
-                      background: isCurrent ? 'var(--secondary)' : 'rgba(74, 225, 118, 0.7)',
-                      borderRadius: '0 0 4px 4px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      minHeight: value > 0 ? '16px' : '0',
-                      borderTop: value > 0 ? '1px solid rgba(0,0,0,0.15)' : 'none'
-                    }}
-                  >
-                  </motion.div>
+                  {hasData && (
+                    <motion.div
+                      key={`lucro-${selectedMonth}-${selectedYear}-${i}`}
+                      initial={{ height: 0 }}
+                      animate={{ height: `${Math.max(lucroHeight, 3)}%` }}
+                      transition={{ duration: 0.8, delay: i * 0.05 + 0.2 }}
+                      style={{
+                        width: '100%',
+                        background: isCurrent ? 'var(--secondary)' : 'rgba(74, 225, 118, 0.7)',
+                        borderRadius: '0 0 4px 4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minHeight: '14px',
+                        borderTop: '1px solid rgba(0,0,0,0.15)'
+                      }}
+                    />
+                  )}
                 </div>
               );
             })}
           </div>
           
-          <div style={{ display: 'flex', justifyContent: 'space-around', padding: '12px 0 0', color: 'var(--text-muted)', fontSize: '10px' }}>
+          <div style={{ display: 'flex', gap: '6px', padding: '12px 0 0', color: 'var(--text-muted)', fontSize: '9px' }}>
             {['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'].map((m, i) => (
-              <div key={m} style={{ flex: 1, textAlign: 'center' }}>{m}</div>
+              <div key={m} style={{ flex: 1, textAlign: 'center', color: i === new Date().getMonth() ? 'var(--primary)' : 'var(--text-muted)', fontWeight: i === new Date().getMonth() ? 700 : 400 }}>
+                {m}
+              </div>
             ))}
           </div>
         </div>
@@ -232,10 +232,19 @@ export default function PainelView() {
                 <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Volume de Produção (Diário - {selectedMonth})</h3>
                 <MoreVertical size={14} color="var(--text-dim)" cursor="pointer" />
             </div>
+            {data.productionData.length === 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '180px', color: 'var(--text-dim)' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <Package size={48} style={{ opacity: 0.3, marginBottom: '12px' }} />
+                  <p style={{ fontSize: '13px' }}>Nenhum dado de produção</p>
+                  <p style={{ fontSize: '11px', opacity: 0.6 }}>para o período selecionado</p>
+                </div>
+              </div>
+            ) : (
             <div style={{ overflowX: 'auto', paddingBottom: '12px', cursor: 'grab' }} className="custom-scrollbar">
-                <div style={{ display: 'flex', alignItems: 'flex-end', height: '180px', gap: '8px', minWidth: `${data.productionData.length * 36}px`, padding: '0 4px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-end', height: '180px', gap: '8px', minWidth: `${Math.max(data.productionData.length * 36, 300)}px`, padding: '0 4px' }}>
                     {data.productionData.map((day: any, i: number) => {
-                        const maxValue = 40; 
+                        const maxValue = Math.max(...data.productionData.map((d: any) => d.val), 1); 
                         const heightPercent = (day.val / maxValue) * 100;
 
                         return (
@@ -244,7 +253,7 @@ export default function PainelView() {
                                     <motion.div 
                                         key={`${selectedMonth}-${selectedYear}-${i}`}
                                         initial={{ height: 0 }}
-                                        animate={{ height: `${heightPercent}%` }}
+                                        animate={{ height: `${Math.max(heightPercent, 2)}%` }}
                                         transition={{ duration: 0.8, delay: i * 0.02 }}
                                         style={{ 
                                             width: '100%', 
@@ -267,6 +276,8 @@ export default function PainelView() {
                     })}
                 </div>
             </div>
+            )}
+        </div>
         </div>
 
         <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
@@ -285,7 +296,6 @@ export default function PainelView() {
                  <AlertItem color="var(--secondary)" title="Tudo OK" desc="Nenhum alerta crítico no momento." time="Agora" />
                )}
             </div>
-        </div>
       </div>
     </motion.div>
   );
