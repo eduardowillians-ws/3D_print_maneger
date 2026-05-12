@@ -42,6 +42,7 @@ interface Client {
   status: 'ATIVO' | 'INATIVO' | 'SUSPENSO';
   color: string;
   since: string;
+  type: string;
 }
 
 interface OrderItem {
@@ -67,6 +68,8 @@ export default function ClientsView() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [status, setStatus] = useState<'ATIVO' | 'INATIVO' | 'SUSPENSO'>('ATIVO');
+  const [clientType, setClientType] = useState('B2B');
+  const clientTypes = ['B2B', 'Prototipagem', 'Hobbyista', 'Educação', 'Outro'];
 
   const formatPhone = (value: string) => {
     const numbers = value.replace(/\D/g, '').slice(0, 11);
@@ -115,7 +118,8 @@ export default function ClientsView() {
             ltv,
             status: 'ATIVO' as const,
             color: '#8A2BE2',
-            since: new Date(c.created_at).toLocaleDateString('pt-BR')
+            since: new Date(c.created_at).toLocaleDateString('pt-BR'),
+            type: c.type || 'Outro'
           };
         });
         setClients(mappedData);
@@ -151,7 +155,8 @@ export default function ClientsView() {
       email: sanitizedEmail,
       phone: sanitizedPhone || null,
       address: null,
-      tags: null
+      tags: null,
+      type: clientType
     };
 
     if (editingClient) {
@@ -161,7 +166,7 @@ export default function ClientsView() {
         return;
       }
       setClients(prev => prev.map(c => c.id === editingClient.id ? { 
-        ...c, name, email, phone, status, initials: name.substring(0, 2).toUpperCase() 
+        ...c, name, email, phone, status, type: clientType, initials: name.substring(0, 2).toUpperCase() 
       } : c));
       alert('Dados do cliente atualizados!');
     } else {
@@ -181,7 +186,8 @@ export default function ClientsView() {
           ltv: 0,
           status: 'ATIVO',
           color: '#8A2BE2',
-          since: new Date().toLocaleDateString('pt-BR')
+          since: new Date().toLocaleDateString('pt-BR'),
+          type: clientType
         };
         setClients([newClient, ...clients]);
       }
@@ -202,6 +208,7 @@ export default function ClientsView() {
     setEmail(client.email);
     setPhone(client.phone);
     setStatus(client.status);
+    setClientType(client.type || 'B2B');
     setShowModal(true);
     setActiveMenu(null);
   };
@@ -226,6 +233,7 @@ const handleDelete = async (id: string) => {
     setEmail('');
     setPhone('');
     setStatus('ATIVO');
+    setClientType('B2B');
   };
 
   const filteredClients = clients.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.email.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -345,6 +353,14 @@ const handleDelete = async (id: string) => {
                     <Phone size={16} style={iconOverlayStyle} />
                     <input type="text" style={iconInputStyle} value={phone} onChange={e => setPhone(formatPhone(e.target.value))} placeholder="(00) 00000-0000" />
                   </div>
+                </div>
+                <div className="input-group">
+                  <label>Tipo de Cliente</label>
+                  <select style={inputStyle} value={clientType} onChange={e => setClientType(e.target.value)}>
+                    {clientTypes.map(t => (
+                      <option key={t} value={t} style={{ background: '#0a0a0a' }}>{t}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="input-group">
                   <label>Status da Conta</label>
