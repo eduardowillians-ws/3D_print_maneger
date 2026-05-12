@@ -57,15 +57,18 @@ export default function PainelView() {
     lucro: stats.lucro,
     impressoes: stats.impressoesAtivas,
     orcamentos: stats.orcamentosPendentes,
+    orcamentosAprovados: stats.orcamentosAprovados,
     productionData: stats.productionData,
     chartData: stats.chartData,
     pieData: stats.pieData,
+    totalClients: stats.totalClients,
     alerts: stats.alerts
   } : {
     receita: '0',
     lucro: '0',
     impressoes: 0,
     orcamentos: 0,
+    orcamentosAprovados: 0,
     productionData: [],
     chartData: [65, 45, 85, 55, 95, 75, 40, 60, 70, 50, 80, 45],
     pieData: [
@@ -74,8 +77,13 @@ export default function PainelView() {
       { label: 'Hobbyistas', val: 20, color: '#F59E0B' },
       { label: 'Educação', val: 15, color: 'var(--secondary)' }
     ],
+    totalClients: 0,
     alerts: []
   };
+  
+  const selectedMonthIndex = months.indexOf(selectedMonth);
+  const isAllMonths = selectedMonth === 'Todos' || selectedMonthIndex < 0;
+  const highlightedMonth = isAllMonths ? -1 : selectedMonthIndex;
 
   const formatCurrency = (value: number) => value.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
@@ -117,6 +125,7 @@ export default function PainelView() {
             <KPICard title="Lucro Mensal" value={`${currencySymbol} ${stats ? formatCurrency(stats.lucro) : '0'}`} change={`${stats?.changeLucro || '0'}% vs mês anterior`} icon={<TrendingUp size={20} color="var(--secondary)" />} bgColor="rgba(74, 225, 118, 0.05)" accentColor="var(--secondary)" isRefreshing={isRefreshing} />
             <KPICard title="Impressões Ativas" value={stats?.impressoesAtivas?.toString() || '0'} change={`${stats?.utilization || 0}% de utilização`} icon={<Printer size={20} color="var(--accent-cyan)" />} bgColor="rgba(34, 211, 238, 0.05)" accentColor="var(--accent-cyan)" isRefreshing={isRefreshing} />
             <KPICard title="Orçamentos Pendentes" value={stats?.orcamentosPendentes?.toString() || '0'} change="Necessita revisão" icon={<FileText size={20} color="#F59E0B" />} bgColor="rgba(245, 158, 11, 0.05)" accentColor="#F59E0B" isRefreshing={isRefreshing} />
+            <KPICard title="Orçamentos Aprovados" value={stats?.orcamentosAprovados?.toString() || '0'} change="Vendidos no período" icon={<TrendingUp size={20} color="var(--secondary)" />} bgColor="rgba(74, 225, 118, 0.05)" accentColor="var(--secondary)" isRefreshing={isRefreshing} />
           </>
         )}
       </div>
@@ -134,7 +143,7 @@ export default function PainelView() {
           
           <div style={{ height: '200px', display: 'flex', alignItems: 'flex-end', gap: '6px', padding: '0 10px' }}>
             {data.chartData.map((value: number, i: number) => {
-              const isCurrent = i === new Date().getMonth() && selectedYear === String(new Date().getFullYear());
+              const isHighlighted = isAllMonths ? (i === new Date().getMonth() && selectedYear === String(new Date().getFullYear())) : i === highlightedMonth;
               const maxVal = Math.max(...data.chartData, 1);
               const receitaHeight = Math.round((value / maxVal) * 100);
               const lucroValue = Math.round(value * 0.4);
@@ -151,7 +160,7 @@ export default function PainelView() {
                     transition={{ duration: 0.8, delay: i * 0.05 }}
                     style={{
                       width: '100%',
-                      background: isCurrent ? 'var(--primary)' : hasData ? 'rgba(138, 43, 226, 0.7)' : 'rgba(138, 43, 226, 0.15)',
+                      background: isHighlighted ? 'var(--primary)' : hasData ? 'rgba(138, 43, 226, 0.7)' : 'rgba(138, 43, 226, 0.15)',
                       borderRadius: '4px 4px 0 0',
                       display: 'flex',
                       alignItems: 'center',
@@ -177,7 +186,7 @@ export default function PainelView() {
                       transition={{ duration: 0.8, delay: i * 0.05 + 0.2 }}
                       style={{
                         width: '100%',
-                        background: isCurrent ? 'var(--secondary)' : 'rgba(74, 225, 118, 0.7)',
+                        background: isHighlighted ? 'var(--secondary)' : 'rgba(74, 225, 118, 0.7)',
                         borderRadius: '0 0 4px 4px',
                         display: 'flex',
                         alignItems: 'center',
@@ -194,7 +203,7 @@ export default function PainelView() {
           
           <div style={{ display: 'flex', gap: '6px', padding: '12px 0 0', color: 'var(--text-muted)', fontSize: '9px' }}>
             {['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'].map((m, i) => (
-              <div key={m} style={{ flex: 1, textAlign: 'center', color: i === new Date().getMonth() ? 'var(--primary)' : 'var(--text-muted)', fontWeight: i === new Date().getMonth() ? 700 : 400 }}>
+              <div key={m} style={{ flex: 1, textAlign: 'center', color: (isAllMonths ? i === new Date().getMonth() : i === highlightedMonth) ? 'var(--primary)' : 'var(--text-muted)', fontWeight: (isAllMonths ? i === new Date().getMonth() : i === highlightedMonth) ? 700 : 400 }}>
                 {m}
               </div>
             ))}
@@ -223,13 +232,13 @@ export default function PainelView() {
                     })}
                 </svg>
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-                    <span style={{ fontSize: '18px', fontWeight: 800 }}>{data.pieData.reduce((a: number, b: any) => a + b.val, 0)}</span>
-                    <span style={{ fontSize: '8px', color: 'var(--text-dim)' }}>TOTAL</span>
+                    <span style={{ fontSize: '18px', fontWeight: 800 }}>{data.totalClients}</span>
+                    <span style={{ fontSize: '8px', color: 'var(--text-dim)' }}>CLIENTES</span>
                 </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', width: '100%' }}>
               {data.pieData.map((slice: any) => (
-                <LegendItem key={slice.label} color={slice.color} label={slice.label} />
+                <LegendItem key={slice.label} color={slice.color} label={`${slice.label} (${slice.val}%)`} />
               ))}
             </div>
           </div>

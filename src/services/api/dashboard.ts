@@ -53,9 +53,23 @@ export const dashboardApi = {
 
     const lucro = receita - custos;
 
-    // Métricas de produção
-    const orcamentosPendentes = quotes.data?.filter((q: any) => q.status === 'PENDENTE').length || 0;
-    const alertasAtivas = production.data?.filter((p: any) => p.status === 'IMPRIMINDO').length || 0;
+    // Filtrar orçamentos e produções do período
+    const periodQuotes = quotes.data?.filter((q: any) => {
+      if (!q.created_at) return false;
+      const dateStr = String(q.created_at).split('T')[0];
+      return dateFilter(dateStr);
+    }) || [];
+    
+    const periodProduction = production.data?.filter((p: any) => {
+      if (!p.created_at) return false;
+      const dateStr = String(p.created_at).split('T')[0];
+      return dateFilter(dateStr);
+    }) || [];
+
+    // Métricas de produção (do período selecionado)
+    const orcamentosPendentes = periodQuotes.filter((q: any) => q.status === 'PENDENTE').length || 0;
+    const orcamentosAprovados = periodQuotes.filter((q: any) => q.status === 'APROVADO').length || 0;
+    const alertasAtivas = periodProduction.filter((p: any) => p.status === 'IMPRIMINDO').length || 0;
     const impressorasTotal = printers.data?.length || 0;
     const impressorasAtivas = printers.data?.filter((p: any) => p.status === 'IMPRIMINDO').length || 0;
 
@@ -69,7 +83,7 @@ export const dashboardApi = {
       return dateFilter(dateStr);
     }) || [];
 
-    const daysInMonth = new Date(parseInt(year), monthIndex, 0).getDate();
+    const daysInMonth = monthIndex > 0 ? new Date(parseInt(year), monthIndex, 0).getDate() : 31;
     
     const dailyProduction = Array.from({ length: isAllMonths ? 12 : daysInMonth }, (_, i) => {
       let day = i + 1;
@@ -77,20 +91,31 @@ export const dashboardApi = {
       
       if (isAllMonths) {
         monthIdx = i + 1;
-        day = 1; // Always day 1 when aggregating by month
+        day = 1;
       }
       
       const dayUnits = monthProduction.reduce((acc: number, j: any) => {
         if (!j.created_at) return acc;
         const jobDate = new Date(j.created_at);
-        const matchDay = isAllMonths ? jobDate.getMonth() === monthIdx : jobDate.getDate() === day && jobDate.getMonth() === monthIdx;
-        if (matchDay && jobDate.getFullYear() === parseInt(year)) {
+        const jobMonth = jobDate.getMonth() + 1;
+        const jobDay = jobDate.getDate();
+        const jobYear = jobDate.getFullYear();
+        
+        let matchDay = false;
+        if (isAllMonths) {
+          matchDay = jobMonth === monthIdx && jobYear === parseInt(year);
+        } else {
+          matchDay = jobDay === day && jobMonth === monthIdx && jobYear === parseInt(year);
+        }
+        
+        if (matchDay) {
           return acc + (j.quantity || 1);
         }
         return acc;
       }, 0);
       
-      return { label: isAllMonths ? ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'][monthIdx - 1] || '' : day.toString(), val: dayUnits };
+      const monthLabels = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      return { label: isAllMonths ? (monthLabels[monthIdx - 1] || '') : day.toString(), val: dayUnits };
     });
 
     // Gráfico anual
@@ -108,19 +133,22 @@ export const dashboardApi = {
     const maxChart = Math.max(...chartData, 1);
     const normalizedChart = chartData.map(v => v > 0 ? Math.round((v / maxChart) * 100) + 5 : 0);
 
-    // Dados de clientes
+    // Dados de clientes (por tipo)
     const clientTypes = clients.data?.reduce((acc: any, c: any) => {
       const type = c.type || 'Outro';
       acc[type] = (acc[type] || 0) + 1;
       return acc;
     }, {}) || {};
-    const totalClients = Object.values(clientTypes).reduce((a: any, b: any) => a + b, 0) || 1;
+    const totalClientsByType = Object.values(clientTypes).reduce((a: any, b: any) => a + b, 0) || 1;
     const typeColors: any = { 'B2B': 'var(--primary)', 'Prototipagem': 'var(--accent-cyan)', 'Hobbyista': '#F59E0B', 'Educação': 'var(--secondary)', 'Outro': '#6B7280' };
     const pieData = Object.entries(clientTypes).map(([label, val]: [string, any]) => ({
       label,
-      val: Math.round((Number(val) / Number(totalClients)) * 100),
+      val: Math.round((Number(val) / Number(totalClientsByType)) * 100),
       color: typeColors[label] || typeColors['Outro']
     }));
+    
+    // Total de clientes reais
+    const totalClients = clients.data?.length || 0;
 
     // Alertas
     const alertas: any[] = [];
@@ -145,6 +173,7 @@ export const dashboardApi = {
       custos,
       lucro,
       orcamentosPendentes,
+      orcamentosAprovados,
       impressoesAtivas: alertasAtivas,
       impressorasTotal,
       impressorasAtivas,
@@ -156,6 +185,7 @@ export const dashboardApi = {
       productionData: dailyProduction,
       chartData: normalizedChart,
       pieData,
+      totalClients,
       alerts: alertas.slice(0, 5)
     };
   }
