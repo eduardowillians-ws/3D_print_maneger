@@ -419,6 +419,11 @@ alert('Trabalho adicionado à fila!');
       alert('Erro ao mover trabalho: ' + error.message);
       return;
     }
+    
+    if (newStatus === 'CONCLUIDO') {
+      await productionApi.consumeMaterials(id);
+      loadMaterials();
+    }
 
     if (currentJob && currentJob.printer && currentJob.printer !== 'Não atribuída' && newStatus !== 'CONCLUIDO') {
       const printersList = await printersApi.getAll();

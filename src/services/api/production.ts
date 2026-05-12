@@ -167,6 +167,48 @@ export const productionApi = {
       .eq('user_id', userId);
   },
 
+  async consumeMaterials(jobId: string): Promise<{ success: boolean; error?: string }> {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+    
+    if (!userId) {
+      return { success: false, error: 'Usuário não autenticado' };
+    }
+    
+    const { data: jobMaterials, error: fetchError } = await supabase
+      .from('production_job_materials')
+      .select('material_id, weight_g')
+      .eq('job_id', jobId)
+      .eq('user_id', userId);
+    
+    if (fetchError || !jobMaterials || jobMaterials.length === 0) {
+      return { success: true };
+    }
+    
+    for (const jobMat of jobMaterials) {
+      if (!jobMat.material_id || jobMat.weight_g <= 0) continue;
+      
+      const { data: material, error: matError } = await supabase
+        .from('materials')
+        .select('id, weight_g, user_id')
+        .eq('id', jobMat.material_id)
+        .eq('user_id', userId)
+        .single();
+      
+      if (matError || !material) continue;
+      
+      const newWeight = Math.max(0, material.weight_g - jobMat.weight_g);
+      
+      await supabase
+        .from('materials')
+        .update({ weight_g: newWeight })
+        .eq('id', material.id)
+        .eq('user_id', userId);
+    }
+    
+    return { success: true };
+  },
+
   async getAggregatedMaterials(monthIndex?: number, year?: string): Promise<{ material_name: string; total_weight: number; count: number }[]> {
     const { data: userData } = await supabase.auth.getUser();
     const userId = userData?.user?.id;
