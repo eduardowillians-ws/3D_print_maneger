@@ -405,7 +405,7 @@ alert('Trabalho adicionado à fila!');
         if (newStatus === 'IMPRIMINDO') {
           const selectedProduct = productsList.find(p => p.name === currentJob.product_name);
           if (selectedProduct) {
-            updates.current_hours = (printer.current_hours || 0) + (selectedProduct.print_time_hours + selectedProduct.print_time_minutes / 60) * currentJob.quantity;
+            updates.current_hours = (printer.current_hours || 0) + (selectedProduct.printTime * currentJob.quantity);
           }
         }
         
@@ -415,6 +415,7 @@ alert('Trabalho adicionado à fila!');
         
         if (Object.keys(updates).length > 0) {
           await printersApi.update(printer.id, updates);
+          loadPrinters();
         }
       }
     }

@@ -333,15 +333,19 @@ export default function OrcamentosView() {
                       setSelectedProductId(selectedId);
                       const selectedProduct = productsList.find(p => p.id === selectedId);
                       if (selectedProduct) {
-                        setUnitValue(selectedProduct.price?.toString().replace('.', ',') || '0');
+                        const price = selectedProduct.suggested_price || (selectedProduct as any).price || 0;
+                        setUnitValue(price.toString().replace('.', ','));
                       }
                     }} 
                     style={{ ...iconInputStyle, cursor: 'pointer' }}
                   >
                     <option value="" style={{ color: '#888' }}>Selecione um produto...</option>
-                    {productsList.map(p => (
-                      <option key={p.id} value={p.id} style={{ color: '#fff' }}>{p.name} - R$ {Number(p.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</option>
-                    ))}
+                    {productsList.map(p => {
+                      const price = p.suggested_price || (p as any).price || 0;
+                      return (
+                        <option key={p.id} value={p.id} style={{ color: '#fff' }}>{p.name} - R$ {Number(price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</option>
+                      );
+                    })}
                   </select>
                 </div>
               </div>
