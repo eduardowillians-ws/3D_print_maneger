@@ -23,6 +23,17 @@ export default function PainelView() {
     loadDashboardData();
   }, [selectedMonth, selectedYear]);
 
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.dropdown-container')) {
+        setOpenDropdown(null);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
   const loadDashboardData = async () => {
     setIsLoading(true);
     const data = await dashboardApi.getStats(selectedMonth, selectedYear);
@@ -319,7 +330,7 @@ function KPICard({ title, value, change, icon, bgColor, accentColor, isRefreshin
 
 function CustomSelect({ label, options, isOpen, onToggle, onSelect }: any) {
   return (
-    <div style={{ position: 'relative', minWidth: '110px' }}>
+    <div className="dropdown-container" style={{ position: 'relative', minWidth: '110px' }}>
       <div 
         onClick={onToggle}
         style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-glass)', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px' }}

@@ -106,7 +106,7 @@ export const dashboardApi = {
       return monthTx.reduce((acc: number, t: any) => acc + Number(t.value), 0);
     });
     const maxChart = Math.max(...chartData, 1);
-    const normalizedChart = chartData.map(v => Math.round((v / maxChart) * 140) + 20);
+    const normalizedChart = chartData.map(v => v > 0 ? Math.round((v / maxChart) * 100) + 5 : 0);
 
     // Dados de clientes
     const clientTypes = clients.data?.reduce((acc: any, c: any) => {
