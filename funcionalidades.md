@@ -23,6 +23,9 @@ Este documento rastreia o progresso do desenvolvimento do sistema **PrintPulse 3
 - [x] Menu de Contexto (...) com ações (Calibrar, Renomear, Remover).
 - [x] Botões robustos de 54px para ações críticas.
 - [x] Conexão via Webhook com Klipper/Moonraker (Estrutura de Telemetria Pronta).
+- [x] Card exibe horas acumuladas de trabalho (current_hours).
+- [x] Detalhes exibem vida útil estimada (initial_hours) cadastrada no manual.
+- [x] Campo "Horas Iniciais" no cadastro para vida útil estimada (ex: 8000h).
 
 ## 🧱 Módulo: Materiais
 - [x] Visualização de unidades AMS ativas (Slot 1 a 4).
@@ -51,6 +54,10 @@ Este documento rastreia o progresso do desenvolvimento do sistema **PrintPulse 3
 - [x] Movimentação fluida entre estágios de produção.
 - [x] Sistema de Arquivamento e Histórico de Produção.
 - [x] Monitoramento de progresso individual por peça.
+- [x] Cálculo de tempo baseado em quantidade (tempo × unidades).
+- [x] Sistema de qualidade com OK/NOK baseado em 50% de eficiência.
+- [x] Modal de qualidade exibe eficiência em tempo real.
+- [x] Card do trabalho mostra OK (verde) ou NOK (vermelho).
 
 ## 👥 Módulo: Clientes (SaaS Premium)
 - [x] Cadastro completo de clientes (CRM) com busca e filtros.

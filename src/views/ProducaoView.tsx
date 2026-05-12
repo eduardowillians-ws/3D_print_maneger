@@ -492,10 +492,17 @@ alert('Trabalho adicionado à fila!');
         </div>
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minHeight: '500px', background: 'rgba(255,255,255,0.01)', borderRadius: '20px', padding: '8px', border: '1px dashed rgba(255,255,255,0.05)' }}>
-          <AnimatePresence mode="popLayout">
+          <AnimatePresence mode="sync">
             {list.map(job => (
+              <motion.div
+                key={job.id}
+                layout
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              >
                 <JobCard 
-                  key={job.id} 
                   job={job} 
                   onMove={(status) => moveJob(job.id, status)} 
                   onDelete={() => deleteJob(job.id)} 
@@ -508,6 +515,7 @@ alert('Trabalho adicionado à fila!');
                     setShowQualityModal(true);
                   }}
                 />
+              </motion.div>
             ))}
           </AnimatePresence>
           {list.length === 0 && (
@@ -1017,10 +1025,11 @@ const filteredJobs = jobs.filter(j => {
                 const good = parseInt(quantityGood) || 0;
                 const total = qualityJob.quantity || 1;
                 const efficiency = Math.round((good / total) * 100);
+                const isOK = efficiency >= 50;
                 return (
-                  <div style={{ background: efficiency >= 90 ? 'rgba(74, 225, 118, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '16px', borderRadius: '12px', textAlign: 'center' }}>
+                  <div style={{ background: isOK ? 'rgba(74, 225, 118, 0.1)' : 'rgba(239, 68, 68, 0.1)', padding: '16px', borderRadius: '12px', textAlign: 'center', border: `1px solid ${isOK ? 'var(--secondary)' : 'var(--error)'}` }}>
                     <p style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: '4px' }}>Eficiência</p>
-                    <p style={{ fontSize: '32px', fontWeight: 800, color: efficiency >= 90 ? 'var(--secondary)' : '#F59E0B' }}>{efficiency}%</p>
+                    <p style={{ fontSize: '32px', fontWeight: 800, color: isOK ? 'var(--secondary)' : 'var(--error)' }}>{efficiency}% <span style={{ fontSize: '16px' }}>({isOK ? 'OK' : 'NOK'})</span></p>
                   </div>
                 );
               })()}
@@ -1223,10 +1232,12 @@ function JobCard({ job, onMove, onDelete, onEdit, onQuality }: { job: Production
             <>
               <button 
                 className="btn-primary" 
-                style={{ flex: 1, padding: '10px', fontSize: '12px', fontWeight: 700, background: job.quality_checked ? 'var(--secondary)' : '#F59E0B', color: 'white' }} 
+                style={{ flex: 1, padding: '10px', fontSize: '12px', fontWeight: 700, background: job.quality_checked ? ((job.quantity_good || 0) >= (job.quantity || 1) * 0.5 ? 'var(--secondary)' : 'var(--error)') : '#F59E0B', color: 'white' }} 
                 onClick={() => onMove('QUALIDADE')}
               >
-                {job.quality_checked ? `OK (${job.quantity_good}/${job.quantity})` : 'Qualidade'} <CheckCircle size={16} />
+                {job.quality_checked 
+                  ? `${(job.quantity_good || 0) >= (job.quantity || 1) * 0.5 ? 'OK' : 'NOK'} (${job.quantity_good}/${job.quantity})` 
+                  : 'Qualidade'} <CheckCircle size={16} />
               </button>
               <button className="btn-primary" style={{ flex: 1, padding: '10px', fontSize: '12px', fontWeight: 700, background: 'rgba(255,255,255,0.05)', color: 'var(--text-dim)', border: '1px solid var(--border-glass)' }} onClick={() => onMove('ARQUIVADO')}>
                 <Archive size={16} /> Arquivar

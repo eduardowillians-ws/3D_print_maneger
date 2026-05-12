@@ -29,6 +29,7 @@ interface Printer {
   model: string;
   status: 'ATIVA' | 'OCIOSA' | 'MANUTENCAO';
   hours: string;
+  initialHours: number;
   activeJob?: string;
   progress?: number;
   alert?: string;
@@ -71,18 +72,25 @@ export default function ImpressorasView() {
       return;
     }
     
-    if (data) {
-      const mappedData: Printer[] = data.map(p => ({
-        id: p.id,
-        name: p.name,
-        model: p.name,
-        status: p.status === 'IMPRIMINDO' ? 'ATIVA' : p.status === 'MANUTENÇÃO' ? 'MANUTENCAO' : 'OCIOSA',
-        hours: `${p.current_hours.toFixed(0)} h`,
-        targetHotend: p.target_hotend.toString(),
-        targetBed: p.target_bed.toString(),
-        targetFan: p.target_fan.toString(),
-        volume: p.volume || ''
-      }));
+    if (data && Array.isArray(data)) {
+      const mappedData: Printer[] = [];
+      data.forEach((p: any) => {
+        if (p) {
+          const current = p.current_hours || 0;
+          mappedData.push({
+            id: p.id || '',
+            name: p.name || 'Sem nome',
+            model: p.name || 'Sem modelo',
+            status: p.status === 'IMPRIMINDO' ? 'ATIVA' : p.status === 'MANUTENÇÃO' ? 'MANUTENCAO' : 'OCIOSA',
+            hours: `${current.toFixed(1)} h`,
+            initialHours: p.initial_hours || 0,
+            targetHotend: String(p.target_hotend || 0),
+            targetBed: String(p.target_bed || 0),
+            targetFan: String(p.target_fan || 0),
+            volume: p.volume || ''
+          });
+        }
+      });
       setPrinters(mappedData);
     }
     setIsLoading(false);
@@ -102,7 +110,7 @@ export default function ImpressorasView() {
       target_fan: parseInt(fan),
       volume: volume,
       initial_hours: parseFloat(initialHours),
-      current_hours: parseFloat(initialHours)
+      current_hours: 0
     };
 
     const { data, error } = await printersApi.create(printerData);
@@ -117,7 +125,8 @@ export default function ImpressorasView() {
         name: data.name,
         model: data.name,
         status: 'OCIOSA',
-        hours: `${data.current_hours.toFixed(0)} h`,
+        hours: '0.0 h',
+        initialHours: data.initial_hours || 0,
         targetHotend: data.target_hotend.toString(),
         targetBed: data.target_bed.toString(),
         targetFan: data.target_fan.toString()
@@ -448,8 +457,8 @@ export default function ImpressorasView() {
                     <div style={telemetryItemStyle}>
                         <Clock size={16} color="var(--text-dim)" />
                         <div>
-                            <p style={telemetryLabelStyle}>Vida Útil</p>
-                            <p style={telemetryValueStyle}>{selectedPrinter.hours}</p>
+                            <p style={telemetryLabelStyle}>Vida Útil (Estimada)</p>
+                            <p style={telemetryValueStyle}>{selectedPrinter.initialHours}h</p>
                         </div>
                     </div>
                 </div>
