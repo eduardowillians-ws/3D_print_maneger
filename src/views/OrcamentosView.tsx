@@ -16,13 +16,15 @@ import {
   Download,
   MoreHorizontal,
   Loader2,
-  Package
+  Package,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
 import { quotesApi } from '../services/api/quotes';
 import { clientsApi } from '../services/api/clients';
 import { productsApi } from '../services/api/products';
+import { transactionsApi } from '../services/api/transactions';
 
 export default function OrcamentosView() {
   const { currencySymbol } = useSettings();
@@ -189,13 +191,39 @@ export default function OrcamentosView() {
   };
 
   const handleApprove = async (id: string) => {
+    const orcamento = orcamentos.find(o => o.id === id);
+    if (!orcamento) return;
+
     const { error } = await quotesApi.updateStatus(id, 'APROVADO');
     if (error) {
       alert('Erro ao aprovar orçamento: ' + error.message);
       return;
     }
+
     setOrcamentos(prev => prev.map(item => item.id === id ? { ...item, status: 'APROVADO' } : item));
     setActiveMenu(null);
+
+    const shouldCreateTransaction = confirm('Orçamento aprovado! Deseja registrar esta receita no financeiro?');
+    if (shouldCreateTransaction) {
+      const clientInfo = clientsList.find(c => c.id === orcamento.clientId);
+      const clientName = clientInfo?.name || 'Cliente Avulso';
+      
+      const transactionData = {
+        description: `Orçamento aprovado: ${orcamento.productName || 'Serviço'} - ${clientName}`,
+        type: 'INCOME' as const,
+        category: 'Vendas',
+        value: orcamento.total,
+        status: 'PENDENTE' as const,
+        date: new Date().toISOString().split('T')[0]
+      };
+
+      const { error: txError } = await transactionsApi.create(transactionData);
+      if (txError) {
+        alert('Orçamento aprovado, mas erro ao criar transação: ' + txError.message);
+      } else {
+        alert('Receita registrada no financeiro com sucesso!');
+      }
+    }
   };
 
   const handleShowPreview = async (item: any) => {
