@@ -96,35 +96,75 @@ export const productionApi = {
   },
 
   async getMaterialsByJob(jobId: string): Promise<ApiResponse<ProductionJobMaterial>> {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+    
+    if (!userId) {
+      return { data: null, error: { message: 'Usuário não autenticado' } };
+    }
+    
     const { data, error } = await supabase
       .from('production_job_materials')
       .select('*')
       .eq('job_id', jobId)
+      .eq('user_id', userId)
       .order('slot_position', { ascending: true });
     return { data, error };
   },
 
-  async addMaterial(material: Partial<ProductionJobMaterial>): Promise<ApiResponseSingle<ProductionJobMaterial>> {
+  async addMaterial(jobId: string, material: Partial<ProductionJobMaterial>): Promise<ApiResponseSingle<ProductionJobMaterial>> {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+    
+    if (!userId) {
+      return { data: null, error: { message: 'Usuário não autenticado' } };
+    }
+    
+    const materialWithUser = {
+      ...material,
+      job_id: jobId,
+      user_id: userId
+    };
+    
     const { data, error } = await supabase
       .from('production_job_materials')
-      .insert(material)
+      .insert(materialWithUser)
       .select()
       .single();
     return { data, error };
   },
 
   async updateMaterial(id: string, material: Partial<ProductionJobMaterial>): Promise<ApiResponseSingle<ProductionJobMaterial>> {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+    
+    if (!userId) {
+      return { data: null, error: { message: 'Usuário não autenticado' } };
+    }
+    
     const { data, error } = await supabase
       .from('production_job_materials')
       .update(material)
       .eq('id', id)
+      .eq('user_id', userId)
       .select()
       .single();
     return { data, error };
   },
 
   async deleteMaterial(id: string) {
-    return supabase.from('production_job_materials').delete().eq('id', id);
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+    
+    if (!userId) {
+      return { error: { message: 'Usuário não autenticado' } };
+    }
+    
+    return supabase
+      .from('production_job_materials')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId);
   },
 
   async getAggregatedMaterials(monthIndex?: number, year?: string): Promise<{ material_name: string; total_weight: number; count: number }[]> {

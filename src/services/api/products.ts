@@ -114,17 +114,36 @@ export const productsApi = {
   },
 
   async updateMaterial(id: string, material: Partial<ProductMaterial>): Promise<ApiResponseSingle<ProductMaterial>> {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+    
+    if (!userId) {
+      return { data: null, error: { message: 'Usuário não autenticado' } };
+    }
+    
     const { data, error } = await supabase
       .from('product_materials')
       .update(material)
       .eq('id', id)
+      .eq('user_id', userId)
       .select()
       .single();
     return { data, error };
   },
 
   async deleteMaterial(id: string) {
-    return supabase.from('product_materials').delete().eq('id', id);
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+    
+    if (!userId) {
+      return { error: { message: 'Usuário não autenticado' } };
+    }
+    
+    return supabase
+      .from('product_materials')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId);
   }
 };
 

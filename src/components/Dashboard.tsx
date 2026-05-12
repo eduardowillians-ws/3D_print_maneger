@@ -18,7 +18,8 @@ import {
   Monitor,
   Menu,
   X,
-  LogOut
+  LogOut,
+  Lock
 } from 'lucide-react';
 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,11 +35,13 @@ import ClientsView from '../views/ClientsView';
 import ReportsView from '../views/ReportsView';
 import FinancialView from '../views/FinancialView';
 import SettingsView from '../views/SettingsView';
+import ChangePasswordModal from './ChangePasswordModal';
 
 export default function Dashboard() {
   const { theme, setTheme, user } = useSettings();
   const [activeTab, setActiveTab] = useState('Painel');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
@@ -148,6 +151,26 @@ export default function Dashboard() {
             </div>
             <LogOut size={14} color="var(--error)" />
           </div>
+
+          {/* Botão Alterar Senha */}
+          <div 
+            onClick={() => setShowPasswordModal(true)}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '10px',
+              padding: '10px 12px', 
+              cursor: 'pointer', 
+              borderRadius: '8px', 
+              transition: 'all 0.2s',
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid var(--border-glass)',
+              marginTop: '8px'
+            }}
+          >
+            <Lock size={16} color="var(--primary)" />
+            <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>Alterar Senha</span>
+          </div>
         </div>
       </aside>
 
@@ -214,6 +237,12 @@ export default function Dashboard() {
           {activeTab === 'Financeiro' && <FinancialView />}
           {activeTab === 'Configurações' && <SettingsView />}
         </div>
+
+        {/* Modal de Alterar Senha */}
+        <ChangePasswordModal 
+          isOpen={showPasswordModal} 
+          onClose={() => setShowPasswordModal(false)} 
+        />
       </div>
     </div>
   );

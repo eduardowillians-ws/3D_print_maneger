@@ -1,416 +1,347 @@
 # Relatório de Análise de Segurança
 
 **Projeto:** PrintPulse 3D  
-**Data da Análise:** 27 de Abril de 2026  
+**Data da Análise:** 27 de Abril de 2026 (v1.0) | **12 de Maio de 2026 (v2.0)**  
 **Analista:** Análise de Segurança  
-**Versão:** 1.0
+**Versão:** 2.0
 
 ---
 
-## 1. Autenticação e Autorização
+## RESUMO EXECUTIVO
 
-### 1.1 Row Level Security (RLS) - CRÍTICO
+| Severidade | v1.0 | v2.0 (Atual) |
+|------------|------|---------------|
+| 🔴 CRÍTICA | 0 | 6 |
+| 🟠 ALTA | 6 | 5 |
+| 🟡 MÉDIA | 6 | 4 |
+| 🟢 BAIXA | 4 | 3 |
 
-| Criticidade | Arquivo | Linha |
-|-------------|---------|-------|
-| **ALTA** | `supabase/schema.sql` | 140-148 |
+**Total de vulnerabilidades identificadas: 18**
 
-**Problema:** Todas as políticas RLS estão configuradas com `USING (true) WITH CHECK (true)`, permitindo acesso irrestrito a todas as tabelas do banco de dados. Qualquer usuário, autenticado ou não, pode realizar operações CRUD completas em todas as tabelas.
+---
+
+## 🚨 VULNERABILIDADES CRÍTICAS (NOVO - v2.0)
+
+### C1. Políticas RLS Permissivas no schema.sql
+| Severidade | Arquivo | Linha |
+|------------|---------|-------|
+| **CRÍTICA** | `supabase/schema.sql` | 140-148 |
+
+**Problema:** Todas as políticas RLS estão configuradas com `USING (true) WITH CHECK (true)`, permitindo acesso irrestrito.
 
 ```sql
 CREATE POLICY "Allow all for all" ON public.printers FOR ALL USING (true) WITH CHECK (true);
 ```
 
-**Recomendação:** Substituir as políticas por verificações restritivas:
-
-```sql
--- Exemplo para tabela de impressoras
-CREATE POLICY "users_can_read_printers" ON public.printers 
-  FOR SELECT USING (auth.uid() IS NOT NULL);
-
-CREATE POLICY "users_can_insert_printers" ON public.printers 
-  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
-
-CREATE POLICY "users_can_update_printers" ON public.printers 
-  FOR UPDATE USING (auth.uid() IS NOT NULL);
-
-CREATE POLICY "users_can_delete_printers" ON public.printers 
-  FOR DELETE USING (auth.uid() IS NOT NULL);
-```
-
-**Impacto:** Um atacante com conhecimento mínimo da API pode manipular todos os dados do sistema, incluindo transações financeiras, clientes e trabalhos de produção.
+**Ação:** Remover ou adicionar aviso de NÃO executar em produção. A migração `20260509_adicionar_user_id_e_rls.sql` já corrige este problema.
 
 ---
 
-### 1.2 Ausência de Verificação de Sessão no Frontend - ALTA
-
-| Criticidade | Arquivo | Linha |
+### C2. IDOR - updateMaterial sem filtro user_id
+| Severidade | Arquivo | Linha |
 |------------|---------|-------|
-| **ALTA** | `src/services/api/baseQueries.ts` | 10-45 |
+| **CRÍTICA** | `src/services/api/products.ts` | 116-124 |
 
-**Problema:** As queries são executadas sem verificar se há uma sessão de usuário ativa. O código não implementa nenhum guard ou interceptador para validar a autenticação antes de realizar requisições.
-
-**Recomendação:** Implementar um wrapper de autenticação:
+**Problema:** Qualquer usuário pode atualizar materiais de produtos de OUTROS usuários.
 
 ```typescript
-// auth Guard
-const verifyAuth = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    throw new Error('Unauthorized');
-  }
-  return session;
+async updateMaterial(id: string, material: Partial<ProductMaterial>) {
+  const { data, error } = await supabase
+    .from('product_materials')
+    .update(material)
+    .eq('id', id)  // ⚠️ Não filtra por user_id!
+    .select()
+    .single();
+}
+```
+
+**Correção:**
+```typescript
+async updateMaterial(id: string, material: Partial<ProductMaterial>) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: createError('Não autenticado') };
+  
+  return supabase
+    .from('product_materials')
+    .update(material)
+    .eq('id', id)
+    .eq('user_id', user.id)  // ✓ Adicionar filtro
+    .select()
+    .single();
+}
+```
+
+---
+
+### C3. IDOR - deleteMaterial sem filtro user_id
+| Severidade | Arquivo | Linha |
+|------------|---------|-------|
+| **CRÍTICA** | `src/services/api/products.ts` | 127 |
+
+**Problema:** Qualquer usuário pode deletar materiais de produtos de OUTROS usuários.
+
+```typescript
+async deleteMaterial(id: string) {
+  return supabase.from('product_materials').delete().eq('id', id);  // ⚠️ Sem filtro
+}
+```
+
+**Correção:**
+```typescript
+async deleteMaterial(id: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: createError('Não autenticado') };
+  
+  return supabase
+    .from('product_materials')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', user.id);  // ✓ Filtrar por usuário
+}
+```
+
+---
+
+### C4. getMaterialsByJob sem verificação de propriedade
+| Severidade | Arquivo | Linha |
+|------------|---------|-------|
+| **CRÍTICA** | `src/services/api/production.ts` | 98-104 |
+
+**Problema:** Um usuário pode visualizar materiais de jobs de produção de OUTROS usuários.
+
+**Correção:** Adicionar verificação de propriedade do job antes de retornar materiais.
+
+---
+
+### C5. addMaterial sem validação
+| Severidade | Arquivo | Linha |
+|------------|---------|-------|
+| **CRÍTICA** | `src/services/api/production.ts` | 107-113 |
+
+**Problema:** Um usuário pode adicionar materiais a jobs de OUTROS usuários.
+
+**Correção:** Verificar se o job pertence ao usuário antes de adicionar material.
+
+---
+
+### C6. SECURITY DEFINER no Trigger
+| Severidade | Arquivo | Linha |
+|------------|---------|-------|
+| **CRÍTICA** | `supabase/migrations/20260509_adicionar_user_id_e_rls.sql` | 66-72 |
+
+**Problema:** A função `handle_new_user()` usa `SECURITY DEFINER`, executando com privilégios de superusuário.
+
+```sql
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  NEW.user_id = auth.uid();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;  -- ⚠️ Perigoso!
+```
+
+**Correção:**
+```sql
+$$ LANGUAGE plpgsql SECURITY INVOKER;  -- ✓ SECURITY INVOKER (padrão seguro)
+```
+
+---
+
+## 🟠 VULNERABILIDADES ALTAS
+
+### A1. LocalStorage com dados sensíveis (NOVO)
+| Severidade | Arquivo | Linha |
+|------------|---------|-------|
+| **ALTA** | `src/contexts/SettingsContext.tsx` | 30-48, 68-73 |
+
+**Problema:** Email e role do usuário armazenados sem criptografia no localStorage.
+
+```typescript
+const savedUser = localStorage.getItem('printpulse_user');
+// Armazena: { email: '...', role: 'Operador', ... }
+```
+
+**Correção:** Não armazenar dados sensíveis no localStorage. Buscar do backend quando necessário.
+
+---
+
+### A2. Filtros executados no frontend
+| Severidade | Arquivo | Linha |
+|------------|---------|-------|
+| **ALTA** | `src/services/api/products.ts` | 26-37 |
+| **ALTA** | `src/services/api/transactions.ts` | 29-45 |
+| **ALTA** | `src/services/api/clients.ts` | 25-37 |
+
+**Problema:** Busca TODOS os registros e filtra no JavaScript, expondo dados desnecessários.
+
+**Correção:** Implementar busca server-side:
+```typescript
+const { data } = await supabase
+  .from('products')
+  .select('*')
+  .ilike('name', `%${term}%`)
+  .eq('user_id', user.id);
+```
+
+---
+
+### A3. Sem Rate Limiting
+| Severidade | Problema |
+|------------|----------|
+| **ALTA** | Sem limite de requisições |
+
+**Correção:** Configurar no Supabase Dashboard > Authentication > Rate Limits:
+- Signups: 5 por IP/hora
+- Token Refreshes: 30 por minuto
+- Magic Links: 10 por IP/hora
+
+---
+
+### A4. Console.log de debug em produção (NOVO)
+| Severidade | Arquivo | Ocorrências |
+|------------|---------|-------------|
+| **ALTA** | `src/views/ProducaoView.tsx` | 6 |
+
+**Problema:** Mensagens de debug expõem IDs e dados internos.
+
+```typescript
+console.log('UseEffect: selectedProductId=', selectedProductId, 'quantity=', quantity);
+```
+
+**Correção:** Remover antes do deploy ou usar flag de desenvolvimento:
+```typescript
+if (import.meta.env.DEV) console.log('debug', data);
+```
+
+---
+
+### A5. Uso excessivo de `any` (NOVO)
+| Severidade | Ocorrências |
+|------------|-------------|
+| **ALTA** | 207 |
+
+**Problema:** Elimina verificação de tipos, permitindo erros runtime e vulnerabilidades.
+
+**Correção:** Definir interfaces tipadas para todas as estruturas de dados.
+
+---
+
+## 🟡 VULNERABILIDADES MÉDIAS
+
+### M1. Falta de validação de inputs em formulários
+| Severidade | Arquivos |
+|------------|----------|
+| **MÉDIA** | Todos os views com formulários |
+
+**Correção:** Adicionar sanitização:
+```typescript
+const sanitizeInput = (value: string): string => {
+  return value.replace(/[<>'"]/g, '').slice(0, 255);
 };
 ```
 
-No React, criar um componente `RequireAuth` para proteger rotas.
-
 ---
 
-## 2. Dados Sensíveis
+### M2. Headers de segurança ausentes
+| Severidade | Problema |
+|------------|----------|
+| **MÉDIA** | Sem CSP, HSTS |
 
-### 2.1 Exposição de Credenciais via Console - ALTA
-
-| Criticidade | Arquivo | Linha |
-|------------|---------|-------|
-| **ALTA** | `src/lib/supabase.ts` | 8 |
-
-**Problema:** Mensagens de erro contendo informações sobre configuração missing são logadas no console do navegador:
-
-```typescript
-console.error('Supabase URL ou Anon Key não configuradas no arquivo .env');
-```
-
-**Recomendação:** Remover ou substituir por logging apenas em desenvolvimento:
-
-```typescript
-if (!supabaseUrl || !supabaseAnonKey) {
-  if (import.meta.env.DEV) {
-    console.error('Supabase não configurado');
-  }
-  //throw new Error('Configuração ausente');
-}
-```
-
----
-
-### 2.2 Variáveis de Ambiente no Client - MÉDIA
-
-| Criticidade | Arquivo | Linha |
-|-------------|---------|-------|
-| **MÉDIA** | `src/lib/supabase.ts` | 4-5 |
-
-**Problema:** As variáveis `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` são expostas no bundle JavaScript do frontend. Embora seja uma prática do Supabase ( chiave pública ), isso permite que um atacante identifique a URL do backend.
-
-**Recomendação:** Esta é uma limitação arquitetural inherent ao Supabase Client. Asegurar que as políticas RLS estejam corretamente configuradas para mitigar riscos.
-
----
-
-### 2.3 Log de Erro Sensível - MÉDIA
-
-| Criticidade | Arquivo | Linha |
-|-------------|---------|-------|
-| **MÉDIA** | `src/services/api/production.ts` | 34 |
-
-**Problema:** Erros internos são logados no console do cliente:
-
-```typescript
-console.error('Error creating job materials:', materialsError);
-```
-
-**Recomendação:** Remover logs de erro ou usar serviço de monitoramento (Sentry) com filtro de dados sensíveis.
-
----
-
-## 3. Validação de Entrada
-
-### 3.1 Filtros Executados no Lado Cliente - ALTA
-
-| Criticidade | Arquivo | Linha |
-|-------------|---------|-------|
-| **ALTA** | `src/services/api/products.ts` | 26-37 |
-
-**Problema:** Buscas por termo são executadas buscando TODOS os registros e filtrando no JavaScript:
-
-```typescript
-async search(term: string): Promise<ApiResponse<Product>> {
-  const { data, error } = await baseQueries.getAll<Product>('products');
-  if (error) return { data: null, error };
-  const lowerTerm = term.toLowerCase();
-  return {
-    data: data?.filter(p => /* filtering */) || null,
-    error: null
-  };
-}
-```
-
-**Impacto:** Todos os produtos são expostos ao cliente antes da filtragem. Um atacante pode obter todos os dados da tabela sem autenticação adequada.
-
-**Recomendação:** Implementar busca no nível do banco usando `ilike` ou busca por vetor:
-
-```sql
--- Supabase
-.select('*').ilike('name', `%${term}%`)
-```
-
-O mesmo problema existe em:
-- `transactions.ts:29-45`
-- `clients.ts:25-37`
-- `printers.ts:33-40`
-
----
-
-### 3.2 Ausência de Sanitização de Entrada - MÉDIA
-
-| Criticidade | Arquivo | Linha |
-|-------------|---------|-------|
-| **MÉDIA** | `src/services/api/baseQueries.ts` | 47-63 |
-
-**Problema:** O payload inserido não é validado antes do envio ao banco. O Supabase SDK protege contra SQL Injection, mas não valida tipos, tamanhos ou conteúdo.
-
-**Recomendação:** Criar schema de validação com Zod ou Yup:
-
-```typescript
-import { z } from 'zod';
-
-const ProductSchema = z.object({
-  name: z.string().min(1).max(255),
-  version: z.string().max(20),
-  print_time_hours: z.number().int().min(0),
-  margin_percent: z.number().int().min(0).max(100)
-});
-```
-
----
-
-## 4. Configurações de Segurança
-
-### 4.1 Ausência de Configuração CORS - MÉDIA
-
-| Criticidade | Arquivo |
-|-------------|---------|
-| **MÉDIA** | Arquivo não encontrado |
-
-**Problema:** O projeto não possui arquivo `vite.config.ts` detalhando configurações CORS. O Vite usa configurações padrão.
-
-**Recomendação:** Configurar CORS explicitamente no Vite:
-
-```typescript
-// vite.config.ts
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    cors: {
-      origin: process.env.VITE_ALLOWED_ORIGINS?.split(',') || ['localhost:5173'],
-      methods: ['GET', 'POST', 'PUT', 'DELETE'],
-      credentials: true
-    }
-  }
-});
-```
-
-No Supabase, configurar em **API > Settings > API Settings**:
-
-- `add an entry` para domínios autorizados
-- **Restrict Access by API Key**: habilitar
-- **Enable Table Rename Filters**: desabilitar em produção
-
----
-
-### 4.2 Headers de Segurança - BAIXA
-
-| Criticidade | Arquivo |
-|-------------|---------|
-| **BAIXA** | Ausente |
-
-**Problema:** Nenhum header de segurança (CSP, HSTS, X-Frame-Options) configurado.
-
-**Recomendação:** Adicionar no `index.html`:
-
+**Correção:** Adicionar no `index.html`:
 ```html
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://*.supabase.co;">
 <meta http-equiv="X-Frame-Options" content="DENY">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 ```
 
 ---
 
-## 5. Dependências do Package.json
+### M3. Console de erro expõe configuração
+| Severidade | Arquivo | Linha |
+|------------|---------|-------|
+| **MÉDIA** | `src/lib/supabase.ts` | 8 |
 
-### 5.1 Bibliotecas com Vulnerabilidades Conhecidas - MÉDIA
-
-| Criticidade | Biblioteca | Versão Atual | Versão Recomendada |
-|-------------|------------|--------------|-------------------|
-| **MÉDIA** | `jspdf` | ^4.2.1 | ^2.5.1 (última vers��o estável) |
-| **BAIXA** | `canvg` | ^4.0.3 | ^4.1.1 |
-| **BAIXA** | `framer-motion` | ^10.16.5 | ^11.x (verificar compatibilidade) |
-
-**Problema:** Biblioteca `jspdf` em versão `^4.2.1` pode ter vulnerabilidades publicadas.
-
-**Recomendação:** Executar auditoria:
-
-```bash
-npm audit
-npm audit fix
-```
-
-Verificar vulnerabilidades em: https://security.snyk.io/vuln
+**Correção:** Já documentado na v1.0, aguardando implementação.
 
 ---
 
-### 5.2 Ausência de锁定 de Versões - BAIXA
+### M4. getStats em clients.ts retorna dados errados (NOVO)
+| Severidade | Arquivo | Linha |
+|------------|---------|-------|
+| **MÉDIA** | `src/services/api/clients.ts` | 45-54 |
 
-| Criticidade | Descrição |
-|-------------|----------|
-| **BAIXA** | Dependencies usancarega semantic versioning (`^`) |
-
-**Recomendação:** Migrar para `package-lock.json` ou usar `npm shrinkwrap`.
-
----
-
-## 6. Práticas de Código
-
-### 6.1 Message de Erro Generic no Login - BAIXA
-
-| Criticidade | Arquivo | Linha |
-|-------------|---------|-------|
-| **BAIXA** | `src/components/Login.tsx` | 23 |
-
-**Problema:** Boa prática observada - a mensagem de erro é genérica:
-
-```typescript
-setError(error.message === 'Invalid login credentials' ? 'Chave de acesso ou e-mail inválidos.' : error.message);
-```
-
-**Status:** ✅ Esta implementação é correta e previne enumeração de usuários.
+**Problema:** Retorna `active = total` e `inactive = 0` sempre.
 
 ---
 
-### 6.2 Ausência de Rate Limiting - ALTA
+## 🟢 VULNERABILIDADES BAIXAS
 
-| Criticidade | Problema |
-|-------------|---------|
-| **ALTA** | Sem limite de requisições |
+### B1. Retorno silencioso sem autenticação
+| Severidade | Arquivo | Linha |
+|------------|---------|-------|
+| **BAIXA** | `src/services/api/baseQueries.ts` | 10-16 |
 
-**Problema:** Não há proteção contra ataques de força bruta ou DDoS.
-
-**Recomendação:** Configurar no Supabase Dashboard:
-
-1. **Authentication > Rate Limits**
-2. Enabling limites:
-   - **Signups**: 5 por IP/hora
-   - **Token Refreshes**: 30 por minuto
-   - **Magic Links**: 10 por IP/hora
-
-No frontend, implementar retry with exponential backoff.
+**Correção:** Retornar erro explícito em vez de array vazio.
 
 ---
 
-### 6.3 Ausência de Logs de Auditoria - MÉDIA
+### B2. Dependências potencialmente desatualizadas
+| Severidade | Problema |
+|------------|----------|
+| **BAIXA** | Sem npm audit |
 
-| Criticidade | Problema |
-|-------------|---------|
-| **MÉDIA** | Sem trilha de auditoria |
-
-**Problema:** Não há registro de operações sensíveis (criar, atualizar, excluir).
-
-**Recomendação:** Criar tabela deauditoria:
-
-```sql
-CREATE TABLE IF NOT EXISTS public.audit_log (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID,
-  action TEXT NOT NULL,
-  table_name TEXT NOT NULL,
-  record_id UUID,
-  old_values JSONB,
-  new_values JSONB,
-  ip_address INET,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-```
-
-Criar trigger:
-
-```sql
-CREATE OR REPLACE FUNCTION audit_trigger() RETURNS trigger AS $$
-BEGIN
-  INSERT INTO public.audit_log (user_id, action, table_name, record_id, new_values)
-  VALUES (auth.uid(), TG_OP, TG_TABLE_NAME, NEW.id, to_jsonb(NEW));
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-```
+**Correção:** Executar `npm audit` periodicamente.
 
 ---
 
-## 7. Acesso ao Banco de Dados
-
-### 7.1 Políticas de Acesso irrestritas - CRÍTICO
-
-Ver Seção 1.1.
-
----
-
-### 7.2 Service Role Exposta (Possível) - ALTA
-
-**Problema potencial:** Se o projeto usa `service_role` key no client, um atacante com acesso ao bundle pode executar operações admin.
-
-**Recomendação:** Garantir que apenas `VITE_SUPABASE_ANON_KEY` (chave pública) seja usada no frontend. O service role deve ficar apenas no server-side ou Edge Functions.
+### B3. Falta de CORS configurado
+| Severidade | Problema |
+|------------|----------|
+| **BAIXA** | Vite usa configurações padrão |
 
 ---
 
-## 8. Variáveis de Ambiente
+## ✅ JÁ CORRIGIDO
 
-### 8.1 Ausência de Arquivo .env no .gitignore - OK
-
-| Criticidade | Arquivo |
-|-------------|---------|
-| **OK** | `.gitignore` ✅ |
-
-O `.gitignore` está corretamente configurado para não expor arquivos `.env`.
+| Item | Status | Data |
+|------|--------|------|
+| `.env` no .gitignore | ✅ Corrigido | 12/05/2026 |
+| RLS nas tabelas principais | ✅ Migração aplicada | 12/05/2026 |
 
 ---
 
-### 8.2 Configuração de Variáveis - BAIXA
+## 📋 CHECKLIST DE CORREÇÃO
 
-| Criticidade | Problema |
-|-------------|---------|
-| **BAIXA** | Variáveis sem validação em runtime |
+### Fase 1 - Imediato (Hoje)
+- [ ] Corrigir `SECURITY DEFINER` → `SECURITY INVOKER` no trigger
+- [ ] Adicionar filtro `user_id` em `updateMaterial` e `deleteMaterial` em products.ts
+- [ ] Adicionar filtro `user_id` em todas operações de `production_job_materials`
+- [ ] Adicionar verificação de propriedade em `getMaterialsByJob` e `addMaterial`
 
-**Recomendação:** Adicionar validation em startup:
+### Fase 2 - Urgente (Esta semana)
+- [ ] Remover dados sensíveis do localStorage (email, role)
+- [ ] Implementar filtros server-side nas funções de busca
+- [ ] Configurar Rate Limiting no Supabase
+- [ ] Remover todos console.log de debug
+- [ ] Corrigir schema.sql (remover políticas "Allow all")
 
-```typescript
-const requiredEnvVars = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'];
-const missing = requiredEnvVars.filter(v => !import.meta.env[v]);
-if (missing.length > 0) {
-  throw new Error(`Missing env vars: ${missing.join(', ')}`);
-}
-```
+### Fase 3 - Importante (Este mês)
+- [ ] Substituir `any` por interfaces tipadas (207 ocorrências)
+- [ ] Adicionar validação de inputs (Zod/DOMPurify)
+- [ ] Adicionar headers de segurança no index.html
+- [ ] Corrigir getStats em clients.ts
 
 ---
 
-## Resumo executivo
+## COMPARATIVO v1.0 vs v2.0
 
-| Criticidade | Quantidade |
-|-------------|-----------|
-| **ALTA** | 6 vulnerabilidades |
-| **MÉDIA** | 6 vulnerabilidades |
-| **BAIXA** | 4 observações positivas |
-
-### Priorização de Ações Imediatas
-
-1. **Corrigir políticas RLS** (schema.sql:140-148) - Permite TOTAL acesso aos dados
-2. **Implementar autenticação guard** - Qualquer usuário pode executar queries
-3. **Mover filtros para server-side** - Evita exposição de dados completos
-4. **Configurar rate limiting** - Protege contra ataques automatizados
-5. **Remover console.error sensíveis** - Evita logging em produção
-6. **Atualizar dependências** - Remediar vulnerabilidades conhecidas
-7. **Configurar CORS e headers** - Camada adicional de proteção
-8. **Implementar logs de auditoria** - Rastreabilidade de operações
+| Categoria | v1.0 | v2.0 | Mudança |
+|-----------|------|------|---------|
+| CRÍTICA | 0 | 6 | +6 (novas auditorias) |
+| ALTA | 6 | 5 | -1 (transferiu para CRÍTICA) |
+| MÉDIA | 6 | 4 | -2 |
+| BAIXA | 4 | 3 | -1 |
 
 ---
 
@@ -418,8 +349,11 @@ if (missing.length > 0) {
 
 - [Supabase Security](https://supabase.com/docs/guides/security)
 - [OWASP Top 10 2021](https://owasp.org/www-project-top-ten/)
+- [OWASP Top 10 2024](https://owasp.org/Top10/pt-br/)
 - [Snyk Vulnerability Database](https://security.snyk.io/vuln)
 
 ---
 
 *Este relatório deve ser revisado periodicamente e após alterações significativas na arquitetura.*
+
+**Última atualização:** 12 de Maio de 2026 - v2.0
