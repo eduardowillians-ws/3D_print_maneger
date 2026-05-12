@@ -183,11 +183,21 @@ export default function FinancialView() {
     });
   });
 
-  const maxValue = Math.max(...monthTransactions.map(t => t.reduce((acc, tr) => acc + (tr.type === 'INCOME' ? tr.value : 0), 0)), 1);
+  const maxValue = Math.max(
+    ...monthTransactions.map(t => t.reduce((acc, tr) => acc + (tr.type === 'INCOME' ? tr.value : 0), 0)),
+    ...monthTransactions.map(t => t.reduce((acc, tr) => acc + (tr.type === 'EXPENSE' ? tr.value : 0), 0)),
+    1
+  );
   
   const chartValues = monthTransactions.map(t => {
     const income = t.reduce((acc, tr) => acc + (tr.type === 'INCOME' ? tr.value : 0), 0);
-    return Math.round((income / maxValue) * 100);
+    const expense = t.reduce((acc, tr) => acc + (tr.type === 'EXPENSE' ? tr.value : 0), 0);
+    return {
+      income,
+      expense,
+      incomePercent: Math.round((income / maxValue) * 100),
+      expensePercent: Math.round((expense / maxValue) * 100)
+    };
   });
 
   const currentMonthIndexForHighlight = filterMonth === 'Todos' 
@@ -391,22 +401,74 @@ export default function FinancialView() {
         </div>
 
         <div style={{ height: '280px', display: 'flex', alignItems: 'flex-end', gap: '8px', padding: '0 20px', borderBottom: '1px solid rgba(255,255,255,0.05)', overflowX: 'visible' }}>
-          {currentData.chartValues.map((h, i) => {
+          {/* Legenda */}
+          <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', gap: '16px', fontSize: '11px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ width: '12px', height: '12px', background: 'var(--primary)', borderRadius: '2px' }}></div>
+              <span style={{ color: 'var(--text-dim)' }}>Receitas</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ width: '12px', height: '12px', background: 'var(--error)', borderRadius: '2px' }}></div>
+              <span style={{ color: 'var(--text-dim)' }}>Custos</span>
+            </div>
+          </div>
+          
+          {currentData.chartValues.map((data, i) => {
             const isCurrentMonth = i === currentData.highlightMonth;
+            const total = data.incomePercent + data.expensePercent;
+            const incomeHeight = data.incomePercent;
+            const expenseHeight = data.expensePercent;
+            
             return (
               <div key={i} style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end', position: 'relative' }}>
-                <motion.div 
-                  key={`${filterMonth}-${filterYear}-${i}`}
-                  initial={{ height: 0 }} 
-                  animate={{ height: isFiltering ? 0 : `${h}%` }} 
-                  style={{ 
-                    width: '100%',
-                    background: isCurrentMonth ? 'var(--primary-glow)' : 'rgba(138, 43, 226, 0.2)', 
-                    borderRadius: '6px 6px 0 0',
-                    border: isCurrentMonth ? '1px solid var(--primary)' : '1px solid rgba(138, 43, 226, 0.3)',
-                    boxShadow: isCurrentMonth ? '0 0 20px rgba(138, 43, 226, 0.4)' : 'none'
-                  }}
-                />
+                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', position: 'relative' }}>
+                  {/* Barra de Receita ( Roxo ) */}
+                  <motion.div 
+                    key={`income-${filterMonth}-${filterYear}-${i}`}
+                    initial={{ height: 0 }} 
+                    animate={{ height: isFiltering ? 0 : `${incomeHeight}%` }} 
+                    style={{ 
+                      width: '100%',
+                      background: isCurrentMonth ? 'var(--primary)' : 'rgba(138, 43, 226, 0.7)', 
+                      borderRadius: '4px 4px 0 0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minHeight: data.income > 0 ? '24px' : '0',
+                      position: 'relative',
+                      zIndex: 2
+                    }}
+                  >
+                    {data.income > 0 && (
+                      <span style={{ fontSize: '9px', fontWeight: 700, color: 'white', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+                        {currencySymbol}{data.income >= 1000 ? (data.income/1000).toFixed(1)+'k' : data.income.toFixed(0)}
+                      </span>
+                    )}
+                  </motion.div>
+                  
+                  {/* Barra de Despesa ( Vermelho ) */}
+                  <motion.div 
+                    key={`expense-${filterMonth}-${filterYear}-${i}`}
+                    initial={{ height: 0 }} 
+                    animate={{ height: isFiltering ? 0 : `${expenseHeight}%` }} 
+                    style={{ 
+                      width: '100%',
+                      background: isCurrentMonth ? 'rgba(239, 68, 68, 0.9)' : 'rgba(239, 68, 68, 0.6)', 
+                      borderRadius: '0 0 4px 4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minHeight: data.expense > 0 ? '24px' : '0',
+                      borderTop: data.income > 0 ? '1px solid rgba(0,0,0,0.2)' : 'none'
+                    }}
+                  >
+                    {data.expense > 0 && (
+                      <span style={{ fontSize: '9px', fontWeight: 700, color: 'white', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+                        {currencySymbol}{data.expense >= 1000 ? (data.expense/1000).toFixed(1)+'k' : data.expense.toFixed(0)}
+                      </span>
+                    )}
+                  </motion.div>
+                </div>
               </div>
             );
           })}
