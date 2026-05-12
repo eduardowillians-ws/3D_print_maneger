@@ -26,6 +26,7 @@ export interface Material {
   type: MaterialType;
   color: string | null;
   weight_g: number;
+  min_stock_g?: number;
   supplier: string | null;
   price_per_kg: number;
   temp_extrusion_fi?: number;

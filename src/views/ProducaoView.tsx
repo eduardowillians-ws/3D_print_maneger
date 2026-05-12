@@ -104,6 +104,23 @@ export default function ProducaoView() {
     { materialId: '', materialName: '', weight: 0, weightPerUnit: 0 }
   ]);
 
+  // Verificar warnings de estoque
+  const getStockWarnings = () => {
+    const warnings: { materialName: string; required: number; available: number }[] = [];
+    jobMaterials.forEach(slot => {
+      if (!slot.materialId || slot.weight <= 0) return;
+      const material = materialsList.find(m => m.id === slot.materialId);
+      if (material && slot.weight > material.weight_g) {
+        warnings.push({
+          materialName: material.name || slot.materialName,
+          required: slot.weight,
+          available: material.weight_g
+        });
+      }
+    });
+    return warnings;
+  };
+
   useEffect(() => {
     loadJobs();
     loadClients();
@@ -924,6 +941,8 @@ const filteredJobs = jobs.filter(j => {
                   {jobMaterials.map((slot, idx) => {
                     const selectedMaterial = materialsList.find(m => m.id === slot.materialId);
                     const displayName = slot.materialName || selectedMaterial?.name || '';
+                    const stockAvailable = selectedMaterial?.weight_g || 0;
+                    const isLowStock = slot.weight > stockAvailable;
                     return (
                       <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
                         <div style={{ flex: 2, position: 'relative' }}>
@@ -931,9 +950,9 @@ const filteredJobs = jobs.filter(j => {
                             <div style={{ 
                               padding: '8px 12px', 
                               borderRadius: '8px', 
-                              background: 'rgba(138, 43, 226, 0.15)', 
-                              border: '1px solid var(--primary)',
-                              color: 'var(--primary)',
+                              background: isLowStock ? 'rgba(239, 68, 68, 0.15)' : 'rgba(138, 43, 226, 0.15)', 
+                              border: `1px solid ${isLowStock ? 'var(--error)' : 'var(--primary)'}`,
+                              color: isLowStock ? 'var(--error)' : 'var(--primary)',
                               fontSize: '13px',
                               fontWeight: 600,
                               display: 'flex',
@@ -950,7 +969,7 @@ const filteredJobs = jobs.filter(j => {
                                   newMaterials[idx] = { materialId: '', materialName: '', weight: 0, weightPerUnit: 0 };
                                   setJobMaterials(newMaterials);
                                 }}
-                                style={{ background: 'transparent', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '2px', fontSize: '16px' }}
+                                style={{ background: 'transparent', border: 'none', color: isLowStock ? 'var(--error)' : 'var(--primary)', cursor: 'pointer', padding: '2px', fontSize: '16px' }}
                               >
                                 ×
                               </button>
@@ -988,15 +1007,31 @@ const filteredJobs = jobs.filter(j => {
                             newMaterials[idx].weightPerUnit = slot.materialId ? newWeight : 0;
                             setJobMaterials(newMaterials);
                           }}
-                          style={{ flex: 1, padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', color: 'white', fontSize: '13px', textAlign: 'right' }}
+                          style={{ flex: 1, padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: isLowStock ? '1px solid var(--error)' : '1px solid var(--border-glass)', color: isLowStock ? 'var(--error)' : 'white', fontSize: '13px', textAlign: 'right' }}
                         />
-                        <span style={{ fontSize: '11px', color: 'var(--text-dim)', width: '20px' }}>g</span>
+                        <span style={{ fontSize: '11px', color: isLowStock ? 'var(--error)' : 'var(--text-dim)', width: 'auto', minWidth: '50px', textAlign: 'right' }}>
+                          {selectedMaterial ? `${stockAvailable}g` : 'g'}
+                        </span>
                       </div>
                     );
                   })}
                 </div>
 
-                <button className="btn-primary" style={{ width: '100%', height: '54px', fontSize: '16px' }} onClick={handleCreateJob}>
+                {(() => {
+                  const warnings = getStockWarnings();
+                  return warnings.length > 0 && (
+                    <div style={{ marginTop: '12px', padding: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--error)', borderRadius: '8px' }}>
+                      <p style={{ fontSize: '12px', color: 'var(--error)', fontWeight: 600, marginBottom: '8px' }}>⚠️ Estoque Insuficiente:</p>
+                      {warnings.map((w, i) => (
+                        <p key={i} style={{ fontSize: '11px', color: 'var(--error)', marginBottom: '4px' }}>
+                          • {w.materialName}: necessário {w.required}g, disponível {w.available}g
+                        </p>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                <button className="btn-primary" style={{ width: '100%', height: '54px', fontSize: '16px', marginTop: '12px', opacity: getStockWarnings().length > 0 ? 0.5 : 1 }} onClick={handleCreateJob}>
                    {editingJob ? 'Salvar Alterações' : 'Lançar na Fila de Produção'}
                 </button>
 </div>

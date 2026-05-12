@@ -152,9 +152,13 @@ export const dashboardApi = {
 
     // Alertas
     const alertas: any[] = [];
-    const lowStockMaterials = materials.data?.filter((m: any) => m.weight_g < 500) || [];
+    const lowStockMaterials = materials.data?.filter((m: any) => {
+      const minStock = m.min_stock_g || 200;
+      return m.weight_g < minStock;
+    }) || [];
     lowStockMaterials.forEach((m: any) => {
-      alertas.push({ color: '#EF4444', title: `Estoque Baixo: ${m.name}`, desc: `${m.weight_g}g restantes. Repor em breve.`, time: 'Recente', type: 'material' });
+      const minStock = m.min_stock_g || 200;
+      alertas.push({ color: '#EF4444', title: `Estoque Baixo: ${m.name}`, desc: `${m.weight_g}g restantes (mín: ${minStock}g)`, time: 'Recente', type: 'material' });
     });
     const maintenancePrinters = printers.data?.filter((p: any) => p.status === 'MANUTENÇÃO') || [];
     maintenancePrinters.forEach((p: any) => {

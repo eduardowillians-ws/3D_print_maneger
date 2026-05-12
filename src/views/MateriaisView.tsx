@@ -49,6 +49,7 @@ export default function MateriaisView() {
   const [brand, setBrand] = useState('');
   const [color, setColor] = useState('');
   const [stock, setStock] = useState('');
+  const [minStock, setMinStock] = useState('');
   const [price, setPrice] = useState('');
   const [tempExtrusionFI, setTempExtrusionFI] = useState('230');
   const [tempExtrusionFS, setTempExtrusionFS] = useState('260');
@@ -83,10 +84,10 @@ export default function MateriaisView() {
         brand: m.supplier || 'Sem marca',
         color: m.color || 'Sem cor',
         stock: m.weight_g / 1000,
-        minStock: 0.5,
+        minStock: (m.min_stock_g || 200) / 1000,
         temp: `${m.temp_extrusion_fi || 200}°C a ${m.temp_extrusion_fs || 250}°C`,
         price: m.price_per_kg.toFixed(2).replace('.', ','),
-        status: m.weight_g > 1000 ? 'Em Estoque' : m.weight_g > 0 ? 'Baixo Estoque' : 'Esgotado',
+        status: m.weight_g > (m.min_stock_g || 200) ? 'Em Estoque' : m.weight_g > 0 ? 'Baixo Estoque' : 'Esgotado',
         tempExtrusionFI: (m.temp_extrusion_fi || 200).toString(),
         tempExtrusionFS: (m.temp_extrusion_fs || 250).toString(),
         tempBedFI: (m.temp_bed_fi || 60).toString(),
@@ -105,12 +106,14 @@ export default function MateriaisView() {
     }
 
     const stockValue = parseFloat(stock) || 0;
+    const minStockValue = parseFloat(minStock) || 0.2;
     const materialData = {
       name: type,
       type: (type.toUpperCase().includes('PLA') ? 'PLA' : type.toUpperCase().includes('PETG') ? 'PETG' : type.toUpperCase().includes('ABS') ? 'ABS' : 'TPU') as MaterialType,
       color: color,
       supplier: brand,
       weight_g: Math.round(stockValue * 1000),
+      min_stock_g: Math.round(minStockValue * 1000),
       price_per_kg: parseFloat(price.replace(',', '.')) || 0,
       temp_extrusion_fi: parseInt(tempExtrusionFI),
       temp_extrusion_fs: parseInt(tempExtrusionFS),
@@ -141,10 +144,10 @@ export default function MateriaisView() {
           brand: data.supplier || 'Sem marca',
           color: data.color || 'Sem cor',
           stock: data.weight_g / 1000,
-          minStock: 0.5,
+          minStock: (data.min_stock_g || 200) / 1000,
           temp: `${data.type === 'PLA' ? 200 : data.type === 'PETG' ? 230 : 250}°C`,
           price: data.price_per_kg.toFixed(2).replace('.', ','),
-          status: data.weight_g > 1000 ? 'Em Estoque' : data.weight_g > 0 ? 'Baixo Estoque' : 'Esgotado'
+          status: data.weight_g > (data.min_stock_g || 200) ? 'Em Estoque' : data.weight_g > 0 ? 'Baixo Estoque' : 'Esgotado'
         };
         setMaterials([newMaterial, ...materials]);
       }
@@ -171,6 +174,7 @@ export default function MateriaisView() {
     setBrand(m.brand);
     setColor(m.color);
     setStock(m.stock.toString());
+    setMinStock(m.minStock.toString());
     setPrice(m.price);
     setTempExtrusionFI(m.tempExtrusionFI || '230');
     setTempExtrusionFS(m.tempExtrusionFS || '260');
@@ -187,6 +191,7 @@ export default function MateriaisView() {
     setBrand('');
     setColor('');
     setStock('');
+    setMinStock('');
     setPrice('');
     setTempExtrusionFI('230');
     setTempExtrusionFS('260');
@@ -322,9 +327,13 @@ export default function MateriaisView() {
                     <input type="number" placeholder="0.0" value={stock} onChange={e => setStock(e.target.value)} style={inputStyle} />
                   </div>
                   <div className="input-group">
-                    <label>Preço por {weightUnit}</label>
-                    <input type="text" placeholder="0,00" value={price} onChange={e => setPrice(e.target.value)} style={inputStyle} />
+                    <label>Estoque Mínimo ({weightUnit})</label>
+                    <input type="number" placeholder="0.2" value={minStock} onChange={e => setMinStock(e.target.value)} style={inputStyle} />
                   </div>
+                </div>
+                <div className="input-group">
+                  <label>Preço por {weightUnit}</label>
+                  <input type="text" placeholder="0,00" value={price} onChange={e => setPrice(e.target.value)} style={inputStyle} />
                 </div>
                 <button className="btn-primary" style={{ height: '52px', marginTop: '12px' }} onClick={handleSave}>
                   Salvar Material
@@ -395,11 +404,13 @@ function MaterialCard({ material, currencySymbol, weightUnit, onDelete, onEdit }
         <div><p style={labelStyle}>Marca</p><p style={valueStyle}>{material.brand}</p></div>
         <div><p style={labelStyle}>Preço /{weightUnit}</p><p style={valueStyle}>{currencySymbol} {material.price}</p></div>
         <div><p style={labelStyle}>Estoque</p><p style={{ ...valueStyle, color: material.stock <= material.minStock ? 'var(--warning)' : 'white' }}>{material.stock} {weightUnit}</p></div>
-        <div><p style={labelStyle}>Temp. Bico</p><p style={valueStyle}><Thermometer size={12} color="var(--primary)" /> {material.temp}</p></div>
+        <div><p style={labelStyle}>Mín. Estoque</p><p style={{ ...valueStyle, color: 'var(--text-muted)' }}>{material.minStock} {weightUnit}</p></div>
+        <div style={{ gridColumn: '1 / -1' }}><p style={labelStyle}>Temp. Bico</p><p style={valueStyle}><Thermometer size={12} color="var(--primary)" /> {material.temp}</p></div>
       </div>
 
-      <div style={{ height: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', marginBottom: '24px', overflow: 'hidden' }}>
-         <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min((material.stock / 5) * 100, 100)}%` }} style={{ height: '100%', background: getStatusColor(material.status), boxShadow: `0 0 10px ${getStatusColor(material.status)}44` }}></motion.div>
+      <div style={{ height: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', marginBottom: '24px', overflow: 'hidden', position: 'relative' }}>
+         <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min((material.stock / Math.max(material.minStock * 5, 1)) * 100, 100)}%` }} style={{ height: '100%', background: getStatusColor(material.status), boxShadow: `0 0 10px ${getStatusColor(material.status)}44` }}></motion.div>
+         <div style={{ position: 'absolute', left: `${Math.min((material.minStock / Math.max(material.minStock * 5, 1)) * 100, 100)}%`, top: '-4px', width: '2px', height: '14px', background: 'var(--warning)' }} title="Mínimo"></div>
       </div>
 
       <div style={{ display: 'flex', gap: '10px' }}>
