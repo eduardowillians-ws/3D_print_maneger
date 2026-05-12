@@ -38,6 +38,10 @@ interface Printer {
   targetBed: string;
   targetFan: string;
   volume?: string;
+  lastMaintenance?: string;
+  totalJobs: number;
+  totalPieces: number;
+  avgTimePerPiece: number;
 }
 
 export default function ImpressorasView() {
@@ -81,6 +85,9 @@ export default function ImpressorasView() {
         if (p) {
           // Calcular horas acumuladas de todos os jobs desta impressora
           let accumulatedHours = 0;
+          let totalJobsCompleted = 0;
+          let totalPiecesCompleted = 0;
+          let totalPrintTime = 0;
           const printerJobs = jobsData?.filter((j: any) => j.printer_id === p.id) || [];
           
           printerJobs.forEach((job: any) => {
@@ -90,6 +97,9 @@ export default function ImpressorasView() {
               const end = new Date(job.end_time).getTime();
               const hours = (end - start) / (1000 * 60 * 60);
               accumulatedHours += hours * (job.quantity || 1);
+              totalJobsCompleted++;
+              totalPiecesCompleted += job.quantity || 1;
+              totalPrintTime += hours;
             } else if (job.status === 'IMPRIMINDO' && job.start_time) {
               // Job em andamento - calcular desde o início
               const start = new Date(job.start_time).getTime();
@@ -100,6 +110,8 @@ export default function ImpressorasView() {
           });
           
           const totalHours = accumulatedHours;
+          const avgTimePerPiece = totalPiecesCompleted > 0 ? totalPrintTime / totalPiecesCompleted : 0;
+          
           mappedData.push({
             id: p.id || '',
             name: p.name || 'Sem nome',
@@ -110,7 +122,11 @@ export default function ImpressorasView() {
             targetHotend: String(p.target_hotend || 0),
             targetBed: String(p.target_bed || 0),
             targetFan: String(p.target_fan || 0),
-            volume: p.volume || ''
+            volume: p.volume || '',
+            lastMaintenance: p.last_maintenance_date || '',
+            totalJobs: totalJobsCompleted,
+            totalPieces: totalPiecesCompleted,
+            avgTimePerPiece: avgTimePerPiece
           });
         }
       });
@@ -152,7 +168,10 @@ export default function ImpressorasView() {
         initialHours: data.initial_hours || 0,
         targetHotend: data.target_hotend.toString(),
         targetBed: data.target_bed.toString(),
-        targetFan: data.target_fan.toString()
+        targetFan: data.target_fan.toString(),
+        totalJobs: 0,
+        totalPieces: 0,
+        avgTimePerPiece: 0
       };
       setPrinters([...printers, newPrinter]);
     }
@@ -490,10 +509,11 @@ export default function ImpressorasView() {
                     <h4 style={{ fontSize: '13px', fontWeight: 700, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Activity size={14} color="var(--primary)" /> Histórico de Estado
                     </h4>
-                    <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.6' }}>
-                        <p>• Última calibração: 24h atrás</p>
-                        <p>• Erros críticos: 0</p>
-                        <p>• Tempo médio de impressão: 5.2h / peça</p>
+                    <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.8' }}>
+                        <p>• Última manutenção: {selectedPrinter.lastMaintenance ? new Date(selectedPrinter.lastMaintenance).toLocaleDateString('pt-BR') : 'Nunca'}</p>
+                        <p>• Trabalhos concluídos: {selectedPrinter.totalJobs}</p>
+                        <p>• Peças produzidas: {selectedPrinter.totalPieces}</p>
+                        <p>• Tempo médio: {selectedPrinter.avgTimePerPiece > 0 ? `${selectedPrinter.avgTimePerPiece.toFixed(1)}h` : '-'} / peça</p>
                     </div>
                 </div>
 
