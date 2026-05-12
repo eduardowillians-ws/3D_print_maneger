@@ -17,7 +17,9 @@ import {
   MoreHorizontal,
   Loader2,
   Package,
-  AlertCircle
+  AlertCircle,
+  History as HistoryIcon,
+  Archive
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
@@ -33,6 +35,7 @@ export default function OrcamentosView() {
   const [editingItem, setEditingItem] = useState<any>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [previewData, setPreviewData] = useState<any>(null);
+  const [showArchive, setShowArchive] = useState(false);
   
   const [client, setClient] = useState('');
   const [quantity, setQuantity] = useState('1');
@@ -102,10 +105,32 @@ export default function OrcamentosView() {
     setIsLoading(false);
   };
 
-  const pendentesCount = orcamentos.filter(o => o.status === 'PENDENTE').length;
-  const receitaEstimada = orcamentos.reduce((acc, curr) => acc + curr.total, 0);
-  const taxaConversao = orcamentos.length > 0 
-    ? Math.round((orcamentos.filter(o => o.status === 'APROVADO' || o.status === 'PAGO').length / orcamentos.length) * 100)
+  const handleArchive = async (id: string) => {
+    const { error } = await quotesApi.updateStatus(id, 'ARQUIVADO');
+    if (error) {
+      alert('Erro ao arquivar orçamento: ' + error.message);
+      return;
+    }
+    setOrcamentos(prev => prev.map(item => item.id === id ? { ...item, status: 'ARQUIVADO' } : item));
+    setActiveMenu(null);
+  };
+
+  const handleRestore = async (id: string) => {
+    const { error } = await quotesApi.updateStatus(id, 'PENDENTE');
+    if (error) {
+      alert('Erro ao restaurar orçamento: ' + error.message);
+      return;
+    }
+    setOrcamentos(prev => prev.map(item => item.id === id ? { ...item, status: 'PENDENTE' } : item));
+  };
+
+  const activeOrcamentos = orcamentos.filter(o => o.status !== 'ARQUIVADO');
+  const archivedOrcamentos = orcamentos.filter(o => o.status === 'ARQUIVADO');
+
+  const pendentesCount = activeOrcamentos.filter(o => o.status === 'PENDENTE').length;
+  const receitaEstimada = activeOrcamentos.reduce((acc, curr) => acc + curr.total, 0);
+  const taxaConversao = activeOrcamentos.length > 0 
+    ? Math.round((activeOrcamentos.filter(o => o.status === 'APROVADO' || o.status === 'PAGO').length / activeOrcamentos.length) * 100)
     : 0;
 
   useEffect(() => {
@@ -253,9 +278,18 @@ export default function OrcamentosView() {
           <h1 style={{ fontSize: '24px', marginBottom: '4px' }}>Gerenciamento de Orçamentos</h1>
           <p style={{ color: 'var(--text-dim)', fontSize: '13px' }}>Gerencie estimativas de clientes e propostas de preços.</p>
         </div>
-        <button className="btn-primary" style={{ padding: '12px 24px', fontSize: '15px' }} onClick={() => setShowAddModal(true)}>
-          <Plus size={20} /> Criar Novo Orçamento
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            className="btn-primary" 
+            style={{ padding: '12px 24px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', fontSize: '15px' }}
+            onClick={() => setShowArchive(!showArchive)}
+          >
+            <HistoryIcon size={18} /> {showArchive ? 'Voltar aos Ativos' : 'Histórico'}
+          </button>
+          <button className="btn-primary" style={{ padding: '12px 24px', fontSize: '15px' }} onClick={() => setShowAddModal(true)}>
+            <Plus size={20} /> Criar Novo Orçamento
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '48px' }}>
@@ -264,64 +298,113 @@ export default function OrcamentosView() {
         <StatCard label="RECEITA ESTIMADA" value={`${currencySymbol} ${receitaEstimada.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`} subValue="Fila" icon={DollarSign} color="var(--primary)" />
       </div>
 
-      <div className="glass-panel" style={{ borderRadius: '16px', overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-            <thead>
-              <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-glass)', background: 'rgba(255,255,255,0.02)' }}>
-                <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>ID</th>
-                <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>Cliente</th>
-                <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>Emitido</th>
-                <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>Total Final</th>
-                <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>Status</th>
-                <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500, textAlign: 'right' }}>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr>
-                  <td colSpan={6} style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    <Loader2 size={32} className="animate-spin" style={{ animation: 'spin 1s linear infinite', marginRight: '12px' }} />
-                    Carregando orçamentos...
-                  </td>
+      {!showArchive ? (
+        <div className="glass-panel" style={{ borderRadius: '16px', overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+              <thead>
+                <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-glass)', background: 'rgba(255,255,255,0.02)' }}>
+                  <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>ID</th>
+                  <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>Cliente</th>
+                  <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>Emitido</th>
+                  <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>Total Final</th>
+                  <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>Status</th>
+                  <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500, textAlign: 'right' }}>Ações</th>
                 </tr>
-              ) : orcamentos.length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    <FileText size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
-                    <p>Nenhum orçamento encontrado</p>
-                  </td>
-                </tr>
-              ) : (
-                orcamentos.map((item) => (
-                <tr key={item.id} style={{ borderBottom: '1px solid var(--border-glass)' }}>
-                  <td style={{ padding: '16px 24px', fontWeight: 600 }}>{item.id}</td>
-                  <td style={{ padding: '16px 24px' }}>{item.client}</td>
-                  <td style={{ padding: '16px 24px', color: 'var(--text-dim)' }}>{item.date}</td>
-                  <td style={{ padding: '16px 24px', fontWeight: 700 }}>{currencySymbol} {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                  <td style={{ padding: '16px 24px' }}><StatusBadge status={item.status} /></td>
-                  <td style={{ padding: '16px 24px', position: 'relative', textAlign: 'right' }}>
-                    <button onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === item.id ? null : item.id); }} style={actionTriggerStyle}>
-                      <MoreHorizontal size={20} />
-                    </button>
-                    <AnimatePresence>
-                      {activeMenu === item.id && (
-                        <motion.div initial={{ opacity: 0, scale: 0.95, y: -10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -10 }} style={dropdownStyle}>
-                          <div style={dropdownItemStyle} onClick={() => handleEdit(item)}><Edit2 size={14} /> Editar</div>
-                          <div style={dropdownItemStyle} onClick={() => handleShowPreview(item)}><FileText size={14} /> Pré-visualizar PDF</div>
-                          <div style={dropdownItemStyle} onClick={() => handleApprove(item.id)}><CheckCircle size={14} /> Aprovar</div>
-                          <div style={{ ...dropdownItemStyle, color: 'var(--error)' }} onClick={() => handleDelete(item.id)}><Trash2 size={14} /> Excluir</div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </td>
-                </tr>
-              ))
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={6} style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                      <Loader2 size={32} className="animate-spin" style={{ animation: 'spin 1s linear infinite', marginRight: '12px' }} />
+                      Carregando orçamentos...
+                    </td>
+                  </tr>
+                ) : activeOrcamentos.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                      <FileText size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
+                      <p>Nenhum orçamento ativo encontrado</p>
+                    </td>
+                  </tr>
+                ) : (
+                  activeOrcamentos.map((item) => (
+                  <tr key={item.id} style={{ borderBottom: '1px solid var(--border-glass)' }}>
+                    <td style={{ padding: '16px 24px', fontWeight: 600 }}>{item.id}</td>
+                    <td style={{ padding: '16px 24px' }}>{item.client}</td>
+                    <td style={{ padding: '16px 24px', color: 'var(--text-dim)' }}>{item.date}</td>
+                    <td style={{ padding: '16px 24px', fontWeight: 700 }}>{currencySymbol} {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                    <td style={{ padding: '16px 24px' }}><StatusBadge status={item.status} /></td>
+                    <td style={{ padding: '16px 24px', position: 'relative', textAlign: 'right' }}>
+                      <button onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === item.id ? null : item.id); }} style={actionTriggerStyle}>
+                        <MoreHorizontal size={20} />
+                      </button>
+                      <AnimatePresence>
+                        {activeMenu === item.id && (
+                          <motion.div initial={{ opacity: 0, scale: 0.95, y: -10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -10 }} style={dropdownStyle}>
+                            <div style={dropdownItemStyle} onClick={() => handleEdit(item)}><Edit2 size={14} /> Editar</div>
+                            <div style={dropdownItemStyle} onClick={() => handleShowPreview(item)}><FileText size={14} /> Pré-visualizar PDF</div>
+                            <div style={dropdownItemStyle} onClick={() => handleApprove(item.id)}><CheckCircle size={14} /> Aprovar</div>
+                            <div style={dropdownItemStyle} onClick={() => handleArchive(item.id)}><Archive size={14} /> Arquivar</div>
+                            <div style={{ ...dropdownItemStyle, color: 'var(--error)' }} onClick={() => handleDelete(item.id)}><Trash2 size={14} /> Excluir</div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </td>
+                  </tr>
+                ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="glass-panel" style={{ padding: '32px', borderRadius: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
+            <Archive size={24} color="var(--primary)" />
+            <h3 style={{ fontSize: '18px', fontWeight: 700 }}>Orçamentos Arquivados</h3>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+            {archivedOrcamentos.map(item => (
+              <div 
+                key={item.id} 
+                className="glass-panel" 
+                style={{ padding: '20px', borderRadius: '16px', background: 'rgba(255,255,255,0.02)' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <p style={{ fontWeight: 700, fontSize: '14px' }}>{item.client}</p>
+                    <p style={{ fontSize: '11px', color: 'var(--text-dim)', marginTop: '4px' }}>
+                      Emitido em: {item.date} • Total: {currencySymbol} {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      onClick={() => handleRestore(item.id)} 
+                      style={{ background: 'var(--primary-glow)', border: '1px solid var(--primary)', color: 'white', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', cursor: 'pointer' }}
+                    >
+                      Restaurar
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(item.id)} 
+                      style={{ background: 'transparent', border: '1px solid var(--error)', color: 'var(--error)', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', cursor: 'pointer' }}
+                    >
+                      Excluir
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {archivedOrcamentos.length === 0 && (
+              <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '64px', color: 'var(--text-muted)' }}>
+                <Archive size={48} style={{ opacity: 0.1, marginBottom: '16px' }} />
+                <p>Nenhum orçamento arquivado.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Modal de criação/edição */}
       <AnimatePresence>

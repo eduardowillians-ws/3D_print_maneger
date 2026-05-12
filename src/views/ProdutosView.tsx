@@ -267,9 +267,6 @@ export default function ProdutosView() {
           <p style={{ color: 'var(--text-dim)', fontSize: '13px' }}>Gerencie peças imprimíveis e sua precificação global.</p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <button className="btn-primary" style={{ padding: '12px 24px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', fontSize: '15px' }}>
-            <Filter size={18} /> Filtrar
-          </button>
           <button className="btn-primary" style={{ padding: '12px 24px', fontSize: '15px' }} onClick={() => setShowAddModal(true)}>
             <Plus size={20} /> Adicionar Produto
           </button>

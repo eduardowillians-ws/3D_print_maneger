@@ -70,7 +70,7 @@ export interface Client {
   created_at: string;
 }
 
-export type QuoteStatus = 'PENDENTE' | 'APROVADO' | 'REJEITADO' | 'PAGO';
+export type QuoteStatus = 'PENDENTE' | 'APROVADO' | 'REJEITADO' | 'PAGO' | 'ARQUIVADO';
 
 export interface Quote {
   id: string;
