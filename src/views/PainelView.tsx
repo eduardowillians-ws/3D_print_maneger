@@ -115,36 +115,78 @@ export default function PainelView() {
         )}
       </div>
 
-      <div style={mainGridStyle}>
-        {/* Gráfico de Linha Reativo */}
+<div style={mainGridStyle}>
+        {/* Gráfico de Barras: Receita vs Lucro */}
         <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', position: 'relative' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
             <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Receita vs Lucro ({selectedYear})</h3>
             <div style={{ display: 'flex', gap: '16px', fontSize: '10px', color: 'var(--text-dim)', flexWrap: 'wrap' }}>
-               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)' }}></div> Receita</span>
-               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--secondary)' }}></div> Lucro</span>
+               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{ width: '12px', height: '12px', background: 'var(--primary)', borderRadius: '2px' }}></div> Receita Total</span>
+               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{ width: '12px', height: '12px', background: 'var(--secondary)', borderRadius: '2px' }}></div> Lucro Mensal</span>
             </div>
           </div>
-          <div style={{ height: '200px', position: 'relative', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: '0 10px' }}>
-             <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
-                <motion.path 
-                  key={`receita-${selectedMonth}-${selectedYear}`}
-                  initial={{ pathLength: 0 }}
-                  animate={{ pathLength: 1 }}
-                  transition={{ duration: 1 }}
-                  d={`M0,${180 - data.chartData[0]} L100,${180 - data.chartData[1]} L200,${180 - data.chartData[2]} L300,${180 - data.chartData[3]} L400,${180 - data.chartData[4]} L500,${180 - data.chartData[5]} L600,${180 - data.chartData[6]}`} 
-                  fill="none" stroke="var(--primary)" strokeWidth="2" 
-                />
-                <motion.path 
-                  key={`lucro-${selectedMonth}-${selectedYear}`}
-                  initial={{ pathLength: 0 }}
-                  animate={{ pathLength: 1 }}
-                  transition={{ duration: 1.2 }}
-                  d={`M0,230 L100,225 L200,232 L300,210 L400,215 L500,205 L600,195`} 
-                  fill="none" stroke="var(--secondary)" strokeWidth="2" strokeDasharray="4 2" 
-                />
-             </svg>
-             {['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul'].map(m => <div key={m} style={chartAxisLabel}>{m}</div>)}
+          
+          <div style={{ height: '200px', display: 'flex', alignItems: 'flex-end', gap: '8px', padding: '0 10px' }}>
+            {data.chartData.map((value: number, i: number) => {
+              const isCurrent = i === new Date().getMonth() && selectedYear === String(new Date().getFullYear());
+              const maxVal = Math.max(...data.chartData, 1);
+              const receitaHeight = Math.round((value / maxVal) * 100);
+              const lucroHeight = Math.round((value * 0.4 / maxVal) * 100);
+              
+              return (
+                <div key={i} style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', position: 'relative' }}>
+                  {/* Barra de Receita (Roxo) */}
+                  <motion.div
+                    key={`receita-${selectedMonth}-${selectedYear}-${i}`}
+                    initial={{ height: 0 }}
+                    animate={{ height: `${receitaHeight}%` }}
+                    transition={{ duration: 0.8, delay: i * 0.05 }}
+                    style={{
+                      width: '100%',
+                      background: isCurrent ? 'var(--primary)' : 'rgba(138, 43, 226, 0.7)',
+                      borderRadius: '4px 4px 0 0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minHeight: value > 0 ? '20px' : '0',
+                      position: 'relative',
+                      zIndex: 2
+                    }}
+                  >
+                    {value > 0 && (
+                      <span style={{ fontSize: '8px', fontWeight: 700, color: 'white', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+                        {value >= 1000 ? (value/1000).toFixed(0)+'k' : value}
+                      </span>
+                    )}
+                  </motion.div>
+                  
+                  {/* Barra de Lucro (Verde) */}
+                  <motion.div
+                    key={`lucro-${selectedMonth}-${selectedYear}-${i}`}
+                    initial={{ height: 0 }}
+                    animate={{ height: `${lucroHeight}%` }}
+                    transition={{ duration: 0.8, delay: i * 0.05 + 0.2 }}
+                    style={{
+                      width: '100%',
+                      background: isCurrent ? 'var(--secondary)' : 'rgba(74, 225, 118, 0.7)',
+                      borderRadius: '0 0 4px 4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minHeight: value > 0 ? '16px' : '0',
+                      borderTop: value > 0 ? '1px solid rgba(0,0,0,0.15)' : 'none'
+                    }}
+                  >
+                  </motion.div>
+                </div>
+              );
+            })}
+          </div>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-around', padding: '12px 0 0', color: 'var(--text-muted)', fontSize: '10px' }}>
+            {['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'].map((m, i) => (
+              <div key={m} style={{ flex: 1, textAlign: 'center' }}>{m}</div>
+            ))}
           </div>
         </div>
 
