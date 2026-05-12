@@ -21,6 +21,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
 import { printersApi } from '../services/api/printers';
+import { productionApi } from '../services/api/production';
 import { PrinterStatus } from '../types/database';
 
 interface Printer {
@@ -65,24 +66,46 @@ export default function ImpressorasView() {
 
   const loadPrinters = async () => {
     setIsLoading(true);
-    const { data, error } = await printersApi.getAll();
+    const { data: printersData, error } = await printersApi.getAll();
+    const { data: jobsData } = await productionApi.getAll();
+    
     if (error) {
       console.error('Erro ao carregar impressoras:', error.message);
       setIsLoading(false);
       return;
     }
     
-    if (data && Array.isArray(data)) {
+    if (printersData && Array.isArray(printersData)) {
       const mappedData: Printer[] = [];
-      data.forEach((p: any) => {
+      printersData.forEach((p: any) => {
         if (p) {
-          const current = p.current_hours || 0;
+          // Calcular horas acumuladas de todos os jobs desta impressora
+          let accumulatedHours = 0;
+          const printerJobs = jobsData?.filter((j: any) => j.printer_id === p.id) || [];
+          
+          printerJobs.forEach((job: any) => {
+            if (job.status === 'CONCLUIDO' && job.start_time && job.end_time) {
+              // Calcular horas reais do job
+              const start = new Date(job.start_time).getTime();
+              const end = new Date(job.end_time).getTime();
+              const hours = (end - start) / (1000 * 60 * 60);
+              accumulatedHours += hours * (job.quantity || 1);
+            } else if (job.status === 'IMPRIMINDO' && job.start_time) {
+              // Job em andamento - calcular desde o início
+              const start = new Date(job.start_time).getTime();
+              const now = new Date().getTime();
+              const hours = (now - start) / (1000 * 60 * 60);
+              accumulatedHours += hours * (job.quantity || 1);
+            }
+          });
+          
+          const totalHours = accumulatedHours;
           mappedData.push({
             id: p.id || '',
             name: p.name || 'Sem nome',
             model: p.name || 'Sem modelo',
             status: p.status === 'IMPRIMINDO' ? 'ATIVA' : p.status === 'MANUTENÇÃO' ? 'MANUTENCAO' : 'OCIOSA',
-            hours: `${current.toFixed(1)} h`,
+            hours: `${totalHours.toFixed(1)} h`,
             initialHours: p.initial_hours || 0,
             targetHotend: String(p.target_hotend || 0),
             targetBed: String(p.target_bed || 0),

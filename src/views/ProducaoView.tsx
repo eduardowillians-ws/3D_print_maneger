@@ -385,37 +385,44 @@ alert('Trabalho adicionado à fila!');
       finalProgress = 100;
     }
     
+    // Calcular horas reais quando concluir o trabalho
+    if (newStatus === 'CONCLUIDO' && currentJob?.start_time) {
+      const startTime = new Date(currentJob.start_time).getTime();
+      const endTime = new Date().getTime();
+      const actualHours = (endTime - startTime) / (1000 * 60 * 60);
+      const hoursToAdd = currentJob.quantity * actualHours;
+      
+      if (currentJob.printer && currentJob.printer !== 'Não atribuída') {
+        const printersList = await printersApi.getAll();
+        const printer = printersList.data?.find(p => p.name === currentJob.printer);
+        if (printer) {
+          await printersApi.update(printer.id, {
+            current_hours: (printer.current_hours || 0) + hoursToAdd,
+            status: 'OCIOSA',
+            total_jobs: (printer.total_jobs || 0) + 1
+          });
+          loadPrinters();
+        }
+      }
+    }
+    
     const { error } = await productionApi.updateStatus(id, statusMap[newStatus], finalProgress, finalStartTime || undefined);
     if (error) {
       alert('Erro ao mover trabalho: ' + error.message);
       return;
     }
 
-    if (currentJob && currentJob.printer && currentJob.printer !== 'Não atribuída') {
+    if (currentJob && currentJob.printer && currentJob.printer !== 'Não atribuída' && newStatus !== 'CONCLUIDO') {
       const printersList = await printersApi.getAll();
       const printer = printersList.data?.find(p => p.name === currentJob.printer);
       if (printer) {
         const updates: any = {};
         
-        const newPrinterStatus = newStatus === 'IMPRIMINDO' ? 'IMPRIMINDO' : (newStatus === 'CONCLUIDO' || newStatus === 'ARQUIVADO' ? 'OCIOSA' : null);
-        if (newPrinterStatus) {
-          updates.status = newPrinterStatus;
-        }
-        
-        if (newStatus === 'IMPRIMINDO') {
-          const selectedProduct = productsList.find(p => p.name === currentJob.product_name);
-          if (selectedProduct) {
-            updates.current_hours = (printer.current_hours || 0) + (selectedProduct.printTime * currentJob.quantity);
-          }
-        }
-        
-        if (newStatus === 'CONCLUIDO' || newStatus === 'ARQUIVADO') {
-          updates.total_jobs = (printer.total_jobs || 0) + 1;
-        }
+        const newPrinterStatus = newStatus === 'IMPRIMINDO' ? 'IMPRIMINDO' : 'OCIOSA';
+        updates.status = newPrinterStatus;
         
         if (Object.keys(updates).length > 0) {
           await printersApi.update(printer.id, updates);
-          loadPrinters();
         }
       }
     }
