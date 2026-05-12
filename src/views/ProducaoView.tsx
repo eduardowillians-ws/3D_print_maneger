@@ -114,20 +114,28 @@ export default function ProducaoView() {
 
   // Recalcular materiais quando quantidade mudar (se houver produto selecionado)
   useEffect(() => {
-    console.log('UseEffect: selectedProductId=', selectedProductId, 'quantity=', quantity);
+    if (import.meta.env.DEV) {
+      console.log('UseEffect: selectedProductId=', selectedProductId, 'quantity=', quantity);
+    }
     if (selectedProductId) {
       const qty = parseInt(quantity) || 1;
-      console.log('Recalculando para qty=', qty);
+      if (import.meta.env.DEV) {
+        console.log('Recalculando para qty=', qty);
+      }
       // Atualiza os pesos baseado na quantidade atual
       setJobMaterials(prev => {
-        console.log('Slots anteriores:', prev);
+        if (import.meta.env.DEV) {
+          console.log('Slots anteriores:', prev);
+        }
         const newMats = prev.map(m => {
           if (m.materialId && m.weightPerUnit > 0) {
             return { ...m, weight: m.weightPerUnit * qty };
           }
           return m;
         });
-        console.log('Novos slots:', newMats);
+        if (import.meta.env.DEV) {
+          console.log('Novos slots:', newMats);
+        }
         return newMats;
       });
     }
@@ -749,7 +757,9 @@ const filteredJobs = jobs.filter(j => {
                           const qty = parseInt(quantity) || 1;
                           
                           if (prodMaterials && prodMaterials.length > 0) {
-                            console.log('Materiais do produto:', prodMaterials);
+                            if (import.meta.env.DEV) {
+                              console.log('Materiais do produto:', prodMaterials);
+                            }
                             const newSlots = prodMaterials.map((pm: any) => {
                               // Extrair nome do material - pode vir de diferentes estruturas
                               const matName = pm.material?.name || pm.material_name || '';
@@ -767,7 +777,9 @@ const filteredJobs = jobs.filter(j => {
                             while (newSlots.length < 4) {
                               newSlots.push({ materialId: '', materialName: '', weight: 0, weightPerUnit: 0 });
                             }
-                            console.log('Slots criados:', newSlots);
+                            if (import.meta.env.DEV) {
+                              console.log('Slots criados:', newSlots);
+                            }
                             setJobMaterials(newSlots);
                           } else if (product?.materialWeight && product.materialWeight > 0) {
                             // Fallback para peso único

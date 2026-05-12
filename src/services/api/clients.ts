@@ -1,5 +1,6 @@
 import { baseQueries } from './baseQueries';
 import { Client, ApiResponse, ApiResponseSingle } from '../../types/database';
+import { supabase } from '../../lib/supabase';
 
 export const clientsApi = {
   async getAll(): Promise<ApiResponse<Client>> {
@@ -23,17 +24,30 @@ export const clientsApi = {
   },
 
   async search(term: string): Promise<ApiResponse<Client>> {
-    const { data, error } = await baseQueries.getAll<Client>('clients');
-    if (error) return { data: null, error };
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { data: [], error: { message: 'Usuário não autenticado' } };
+    }
+    
+    if (!term || term.trim() === '') {
+      return baseQueries.getAll<Client>('clients');
+    }
+    
     const lowerTerm = term.toLowerCase();
-    return {
-      data: data?.filter(c => 
-        c.name.toLowerCase().includes(lowerTerm) ||
-        c.email?.toLowerCase().includes(lowerTerm) ||
-        c.phone?.includes(term)
-      ) || null,
-      error: null
-    };
+    
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('user_id', user.id)
+      .or(`name.ilike.%${lowerTerm}%,email.ilike.%${lowerTerm}%,phone.ilike.%${term}%`)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      return { data: null, error: { message: error.message } };
+    }
+    
+    return { data: data as Client[], error: null };
   },
 
   async getActive(): Promise<ApiResponse<Client>> {

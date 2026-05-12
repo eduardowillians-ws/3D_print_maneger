@@ -1,5 +1,6 @@
 import { baseQueries } from './baseQueries';
 import { Transaction, TransactionType, TransactionStatus, ApiResponse, ApiResponseSingle } from '../../types/database';
+import { supabase } from '../../lib/supabase';
 
 export const transactionsApi = {
   async getAll(): Promise<ApiResponse<Transaction>> {
@@ -27,21 +28,46 @@ export const transactionsApi = {
   },
 
   async getByType(type: TransactionType): Promise<ApiResponse<Transaction>> {
-    const { data, error } = await baseQueries.getAll<Transaction>('transactions');
-    if (error) return { data: null, error };
-    return {
-      data: data?.filter(t => t.type === type) || null,
-      error: null
-    };
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { data: [], error: { message: 'Usuário não autenticado' } };
+    }
+    
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('type', type)
+      .order('date', { ascending: false });
+    
+    if (error) {
+      return { data: null, error: { message: error.message } };
+    }
+    
+    return { data: data as Transaction[], error: null };
   },
 
   async getByDateRange(startDate: string, endDate: string): Promise<ApiResponse<Transaction>> {
-    const { data, error } = await baseQueries.getAll<Transaction>('transactions');
-    if (error) return { data: null, error };
-    return {
-      data: data?.filter(t => t.date >= startDate && t.date <= endDate) || null,
-      error: null
-    };
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { data: [], error: { message: 'Usuário não autenticado' } };
+    }
+    
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('user_id', user.id)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .order('date', { ascending: false });
+    
+    if (error) {
+      return { data: null, error: { message: error.message } };
+    }
+    
+    return { data: data as Transaction[], error: null };
   },
 
   async getStats(): Promise<{ totalIncome: number; totalExpense: number; balance: number; transactionCount: number }> {

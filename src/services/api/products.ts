@@ -24,16 +24,30 @@ export const productsApi = {
   },
 
   async search(term: string): Promise<ApiResponse<Product>> {
-    const { data, error } = await baseQueries.getAll<Product>('products');
-    if (error) return { data: null, error };
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { data: [], error: { message: 'Usuário não autenticado' } };
+    }
+    
+    if (!term || term.trim() === '') {
+      return baseQueries.getAll<Product>('products');
+    }
+    
     const lowerTerm = term.toLowerCase();
-    return {
-      data: data?.filter(p => 
-        p.name.toLowerCase().includes(lowerTerm) ||
-        p.version.toLowerCase().includes(lowerTerm)
-      ) || null,
-      error: null
-    };
+    
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('user_id', user.id)
+      .or(`name.ilike.%${lowerTerm}%,version.ilike.%${lowerTerm}%`)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      return { data: null, error: { message: error.message } };
+    }
+    
+    return { data: data as Product[], error: null };
   },
 
   async getStats(): Promise<{ total: number; avgTime: number; avgPrice: number }> {

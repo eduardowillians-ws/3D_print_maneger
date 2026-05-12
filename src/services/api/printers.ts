@@ -1,5 +1,6 @@
 import { baseQueries } from './baseQueries';
 import { Printer, PrinterStatus, ApiResponse, ApiResponseSingle } from '../../types/database';
+import { supabase } from '../../lib/supabase';
 
 export const printersApi = {
   async getAll(): Promise<ApiResponse<Printer>> {
@@ -31,12 +32,24 @@ export const printersApi = {
   },
 
   async getByStatus(status: PrinterStatus): Promise<ApiResponse<Printer>> {
-    const { data, error } = await baseQueries.getAll<Printer>('printers');
-    if (error) return { data: null, error };
-    return {
-      data: data?.filter(p => p.status === status) || null,
-      error: null
-    };
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { data: [], error: { message: 'Usuário não autenticado' } };
+    }
+    
+    const { data, error } = await supabase
+      .from('printers')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('status', status)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      return { data: null, error: { message: error.message } };
+    }
+    
+    return { data: data as Printer[], error: null };
   },
 
   async getActive(): Promise<ApiResponse<Printer>> {
