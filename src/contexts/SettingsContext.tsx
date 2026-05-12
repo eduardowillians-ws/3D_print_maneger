@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import { userProfilesApi } from '../services/api/userProfiles';
 
 interface UserProfile {
   name: string;
@@ -18,15 +19,18 @@ interface SettingsContextType {
   setMeasureSystem: (m: string) => void;
   user: UserProfile;
   setUser: (u: UserProfile) => void;
-  saveSettings: () => void;
+  saveSettings: () => Promise<void>;
+  saveUserPhoto: (base64: string) => Promise<boolean>;
   currencySymbol: string;
   weightUnit: string;
+  isLoading: boolean;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user: authUser } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     return (localStorage.getItem('printpulse_theme') as 'dark' | 'light') || 'dark';
   });
@@ -52,30 +56,55 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const emailName = authUser.email?.split('@')[0] || 'Usuário';
       const displayName = emailName.split('.').map(n => n.charAt(0).toUpperCase() + n.slice(1)).join(' ');
       const [firstName, ...rest] = displayName.split(' ');
+      
+      const defaultPhoto = `https://api.dicebear.com/7.x/avataaars/svg?seed=${emailName}`;
+      
       setUser(prev => ({
         ...prev,
         name: firstName,
         lastName: rest.join(' '),
         email: authUser.email || '',
-        photo: `https://api.dicebear.com/7.x/avataaars/svg?seed=${emailName}`
+        photo: prev.photo || defaultPhoto
       }));
+      
+      userProfilesApi.getProfile().then(profile => {
+        if (profile?.photo_url) {
+          setUser(prev => ({ ...prev, photo: profile.photo_url || defaultPhoto }));
+        } else {
+          setUser(prev => ({ ...prev, photo: defaultPhoto }));
+        }
+        setIsLoading(false);
+      }).catch(() => {
+        setUser(prev => ({ ...prev, photo: defaultPhoto }));
+        setIsLoading(false);
+      });
+    } else {
+      setIsLoading(false);
     }
   }, [authUser]);
 
   const currencySymbol = currency.includes('BRL') ? 'R$' : currency.includes('USD') ? '$' : '€';
   const weightUnit = measureSystem.includes('Métrico') ? 'g' : 'oz';
 
-  const saveSettings = () => {
+  const saveSettings = async () => {
     localStorage.setItem('printpulse_theme', theme);
     localStorage.setItem('printpulse_currency', currency);
     localStorage.setItem('printpulse_measure', measureSystem);
     localStorage.setItem('printpulse_user', JSON.stringify(user));
   };
 
+  const saveUserPhoto = async (base64: string): Promise<boolean> => {
+    const success = await userProfilesApi.savePhoto(base64);
+    if (success) {
+      setUser(prev => ({ ...prev, photo: base64 }));
+      localStorage.setItem('printpulse_user', JSON.stringify({ ...user, photo: base64 }));
+    }
+    return success;
+  };
+
   useEffect(() => {
     document.body.className = theme === 'dark' ? 'dark-theme' : 'light-theme';
-    saveSettings();
-  }, [theme, currency, measureSystem, user]);
+  }, [theme]);
 
   const value = {
     theme, setTheme,
@@ -83,8 +112,10 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     measureSystem, setMeasureSystem,
     user, setUser,
     saveSettings,
+    saveUserPhoto,
     currencySymbol,
-    weightUnit
+    weightUnit,
+    isLoading
   };
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;

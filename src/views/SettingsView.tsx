@@ -28,7 +28,7 @@ interface ApiKey {
 }
 
 export default function SettingsView() {
-  const { theme, setTheme, currency, setCurrency, measureSystem, setMeasureSystem, user, setUser, saveSettings } = useSettings();
+  const { theme, setTheme, currency, setCurrency, measureSystem, setMeasureSystem, user, setUser, saveSettings, saveUserPhoto } = useSettings();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -43,30 +43,28 @@ export default function SettingsView() {
     { id: '1', name: 'Sincronização de ERP de Produção', key: 'sk_live_51M...9x10', lastUsed: '2 min atrás' }
   ]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      saveSettings();
-      setIsSaving(false);
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
-    }, 1000);
+    await saveSettings();
+    setIsSaving(false);
+    setShowSuccess(true);
+    setTimeout(() => setShowSuccess(false), 3000);
   };
 
-  // LÓGICA DE COMPRESSÃO DE IMAGEM (PARA SUPABASE PERFORMANCE)
-  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // LÓGICA DE COMPRESSÃO DE IMAGEM E UPLOAD PARA SUPABASE
+  const handlePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.readAsDataURL(file);
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       const img = new Image();
       img.src = e.target?.result as string;
-      img.onload = () => {
+      img.onload = async () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 400;
-        const MAX_HEIGHT = 400;
+        const MAX_WIDTH = 200;
+        const MAX_HEIGHT = 200;
         let width = img.width;
         let height = img.height;
 
@@ -81,9 +79,14 @@ export default function SettingsView() {
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
         
-        // Comprime para 70% de qualidade
-        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+        // Comprime para 60% de qualidade (imagem bem pequena)
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+        
+        // Atualiza localmente primeiro
         setUser({ ...user, photo: compressedBase64 });
+        
+        // Salva no Supabase
+        await saveUserPhoto(compressedBase64);
       };
     };
   };
