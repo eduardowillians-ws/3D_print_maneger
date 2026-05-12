@@ -24,8 +24,9 @@ import {
   Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useSettings } from '../contexts/SettingsContext';
 import { clientsApi } from '../services/api/clients';
+import { validationUtils } from '../utils/validation';
+import { useSettings } from '../contexts/SettingsContext';
 import { quotesApi } from '../services/api/quotes';
 import { productionApi } from '../services/api/production';
 import { transactionsApi } from '../services/api/transactions';
@@ -126,15 +127,29 @@ export default function ClientsView() {
   };
 
   const handleSaveClient = async () => {
-    if (!name || !email) {
-      alert('Preencha os campos obrigatórios!');
+    const sanitizedName = validationUtils.sanitizeString(name);
+    const sanitizedEmail = validationUtils.sanitizeEmail(email);
+    const sanitizedPhone = validationUtils.sanitizePhone(phone);
+
+    if (!sanitizedName) {
+      alert('Nome é obrigatório!');
+      return;
+    }
+
+    if (!validationUtils.validateEmail(sanitizedEmail)) {
+      alert('E-mail inválido!');
+      return;
+    }
+
+    if (sanitizedPhone && !validationUtils.validatePhone(sanitizedPhone)) {
+      alert('Telefone inválido!');
       return;
     }
 
     const clientData = {
-      name,
-      email,
-      phone: phone || null,
+      name: sanitizedName,
+      email: sanitizedEmail,
+      phone: sanitizedPhone || null,
       address: null,
       tags: null
     };
