@@ -13,7 +13,11 @@ import {
   Package,
   User,
   Phone,
-  MapPin
+  MapPin,
+  Truck,
+  Zap,
+  Shield,
+  RefreshCw
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { StoreProduct, StoreConfig } from '../types/database';
@@ -271,21 +275,68 @@ export default function Storefront() {
     );
   }
 
+  const scrollToProducts = () => {
+    document.getElementById('products-section')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#fff' }}>
-      {/* Header */}
-      <header style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.1)', position: 'sticky', top: 0, zIndex: 100, background: 'rgba(10,10,15,0.95)', backdropFilter: 'blur(10px)' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {/* Hero Section */}
+      <section style={{
+        position: 'relative',
+        overflow: 'hidden',
+        background: 'linear-gradient(135deg, #0a0a0f 0%, #1a1025 50%, #0a0a0f 100%)',
+        padding: '0 24px'
+      }}>
+        {/* Decorative elements */}
+        <div style={{
+          position: 'absolute',
+          top: '-50%',
+          left: '-10%',
+          width: '400px',
+          height: '400px',
+          background: 'radial-gradient(circle, rgba(138,43,226,0.15) 0%, transparent 70%)',
+          borderRadius: '50%',
+          pointerEvents: 'none'
+        }} />
+        <div style={{
+          position: 'absolute',
+          bottom: '-30%',
+          right: '-5%',
+          width: '300px',
+          height: '300px',
+          background: 'radial-gradient(circle, rgba(91,30,214,0.1) 0%, transparent 70%)',
+          borderRadius: '50%',
+          pointerEvents: 'none'
+        }} />
+
+        {/* Top Navigation Bar */}
+        <nav style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          padding: '20px 0',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          position: 'relative',
+          zIndex: 10
+        }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'linear-gradient(135deg, #8A2BE2, #5B1ED6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Store size={20} color="white" />
+            <div style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #8A2BE2, #5B1ED6)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 15px rgba(138,43,226,0.3)'
+            }}>
+              <Store size={22} color="white" />
             </div>
-            <div>
-              <h1 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>{config.store_name}</h1>
-              {config.store_description && (
-                <p style={{ fontSize: '12px', color: '#888', margin: 0 }}>{config.store_description}</p>
-              )}
-            </div>
+            <span style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '-0.5px' }}>
+              {config.store_name}
+            </span>
           </div>
 
           <button
@@ -297,7 +348,9 @@ export default function Storefront() {
               borderRadius: '12px',
               padding: '12px',
               cursor: 'pointer',
-              color: 'white'
+              color: 'white',
+              transition: 'all 0.2s',
+              backdropFilter: 'blur(10px)'
             }}
           >
             <ShoppingCart size={22} />
@@ -306,7 +359,7 @@ export default function Storefront() {
                 position: 'absolute',
                 top: '-6px',
                 right: '-6px',
-                background: '#8A2BE2',
+                background: 'linear-gradient(135deg, #8A2BE2, #5B1ED6)',
                 color: 'white',
                 borderRadius: '50%',
                 width: '22px',
@@ -315,17 +368,222 @@ export default function Storefront() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: '11px',
-                fontWeight: 700
+                fontWeight: 700,
+                boxShadow: '0 2px 8px rgba(138,43,226,0.4)'
               }}>
                 {getCartItemCount()}
               </span>
             )}
           </button>
-        </div>
-      </header>
+        </nav>
 
-      {/* Products Grid */}
-      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 24px' }}>
+        {/* Hero Content */}
+        <div className="hero-content" style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          padding: '60px 0 80px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '60px',
+          position: 'relative',
+          zIndex: 10
+        }}>
+          {/* Left: Text Content */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 16px',
+              background: 'rgba(138,43,226,0.1)',
+              border: '1px solid rgba(138,43,226,0.2)',
+              borderRadius: '100px',
+              marginBottom: '24px',
+              fontSize: '13px',
+              color: '#8A2BE2',
+              fontWeight: 500
+            }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4AE176' }} />
+              Loja Online
+            </div>
+
+            <h1 style={{
+              fontSize: 'clamp(32px, 5vw, 48px)',
+              fontWeight: 800,
+              margin: '0 0 16px',
+              lineHeight: 1.1,
+              letterSpacing: '-1px'
+            }}>
+              {config.store_name}
+            </h1>
+
+            <p style={{
+              fontSize: 'clamp(16px, 2vw, 18px)',
+              color: '#888',
+              margin: '0 0 12px',
+              lineHeight: 1.6
+            }}>
+              {config.store_description || 'Impressão 3D profissional'}
+            </p>
+            <p style={{
+              fontSize: 'clamp(14px, 1.5vw, 16px)',
+              color: '#666',
+              margin: '0 0 40px',
+              lineHeight: 1.5
+            }}>
+              Peças personalizadas e fabricação sob demanda
+            </p>
+
+            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+              <button
+                onClick={scrollToProducts}
+                style={{
+                  padding: '16px 32px',
+                  background: 'linear-gradient(135deg, #8A2BE2, #5B1ED6)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  boxShadow: '0 4px 20px rgba(138,43,226,0.4)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <Package size={20} />
+                Ver Produtos
+              </button>
+
+              <button
+                onClick={() => setShowCart(true)}
+                style={{
+                  padding: '16px 32px',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '12px',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  backdropFilter: 'blur(10px)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <ShoppingCart size={20} />
+                Carrinho
+                {getCartItemCount() > 0 && (
+                  <span style={{
+                    background: '#8A2BE2',
+                    padding: '2px 8px',
+                    borderRadius: '100px',
+                    fontSize: '13px',
+                    fontWeight: 700
+                  }}>
+                    {getCartItemCount()}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Right: Cover Image */}
+          <div className="hero-image" style={{
+            flex: '0 0 400px',
+            height: '360px',
+            borderRadius: '24px',
+            overflow: 'hidden',
+            background: 'linear-gradient(135deg, rgba(138,43,226,0.15), rgba(91,30,214,0.08))',
+            border: '1px solid rgba(138,43,226,0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative'
+          }}>
+            {config.banner_url ? (
+              <img
+                src={config.banner_url}
+                alt={config.store_name}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover'
+                }}
+              />
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px' }}>
+                <div style={{
+                  width: '80px',
+                  height: '80px',
+                  margin: '0 auto 20px',
+                  background: 'linear-gradient(135deg, rgba(138,43,226,0.3), rgba(91,30,214,0.2))',
+                  borderRadius: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Package size={40} color="#8A2BE2" />
+                </div>
+                <p style={{ color: '#666', fontSize: '14px', margin: 0 }}>Sua loja 3D</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom gradient fade */}
+        <div style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: '80px',
+          background: 'linear-gradient(to top, #0a0a0f, transparent)',
+          pointerEvents: 'none'
+        }} />
+      </section>
+
+      {/* Products Section */}
+      <section id="products-section" style={{ maxWidth: '1200px', margin: '0 auto', padding: '60px 24px 32px', scrollMarginTop: '20px' }}>
+        {/* Section Header */}
+        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '6px 14px',
+            background: 'rgba(138,43,226,0.1)',
+            border: '1px solid rgba(138,43,226,0.15)',
+            borderRadius: '100px',
+            marginBottom: '16px',
+            fontSize: '12px',
+            color: '#8A2BE2',
+            fontWeight: 500
+          }}>
+            <Package size={14} />
+            Catálogo
+          </div>
+          <h2 style={{
+            fontSize: 'clamp(24px, 3vw, 32px)',
+            fontWeight: 700,
+            margin: '0 0 8px',
+            letterSpacing: '-0.5px'
+          }}>
+            Nossos Produtos
+          </h2>
+          <p style={{
+            fontSize: '16px',
+            color: '#666',
+            margin: 0
+          }}>
+            Confira os itens disponíveis em nossa loja
+          </p>
+        </div>
+
         {products.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '80px 20px', color: '#666' }}>
             <ImageIcon size={64} style={{ marginBottom: '16px', opacity: 0.3 }} />
@@ -401,7 +659,7 @@ export default function Storefront() {
             ))}
           </div>
         )}
-      </main>
+      </section>
 
       {/* Cart Sidebar */}
       {showCart && (
@@ -662,6 +920,22 @@ export default function Storefront() {
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        @media (max-width: 900px) {
+          .hero-content {
+            flex-direction: column !important;
+            text-align: center;
+          }
+          .hero-content > div:first-child {
+            order: 1;
+          }
+          .hero-image {
+            flex: 0 0 auto !important;
+            width: 100% !important;
+            max-width: 320px !important;
+            height: 240px !important;
+            margin: 0 auto;
+          }
         }
       `}</style>
     </div>

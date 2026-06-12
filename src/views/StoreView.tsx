@@ -44,6 +44,7 @@ export default function StoreView() {
   const [configName, setConfigName] = useState('');
   const [configWhatsapp, setConfigWhatsapp] = useState('');
   const [configDescription, setConfigDescription] = useState('');
+  const [configBanner, setConfigBanner] = useState<string | null>(null);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,6 +59,7 @@ export default function StoreView() {
       setConfigName(config.store_name || '');
       setConfigWhatsapp(config.whatsapp_number || '');
       setConfigDescription(config.store_description || '');
+      setConfigBanner(config.banner_url || null);
     }
   }, [config]);
 
@@ -89,6 +91,31 @@ export default function StoreView() {
       alert('Erro ao processar imagem.');
     }
     setIsUploading(false);
+  };
+
+  const handleBannerSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Por favor, selecione apenas arquivos de imagem.');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const base64 = await storeProductsApi.imageToBase64(file);
+      setConfigBanner(base64);
+      await saveConfig('banner_url', base64);
+    } catch (error) {
+      alert('Erro ao processar imagem.');
+    }
+    setIsUploading(false);
+  };
+
+  const removeBanner = async () => {
+    setConfigBanner(null);
+    await saveConfig('banner_url', '');
   };
 
   const resetForm = () => {
@@ -284,6 +311,69 @@ export default function StoreView() {
               rows={2}
               style={{ width: '100%', padding: '12px 16px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-glass)', borderRadius: '12px', color: 'white', fontSize: '14px', outline: 'none', resize: 'vertical' }}
             />
+          </div>
+
+          <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+            <label>Imagem de Capa da Loja</label>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <label
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '24px',
+                  background: 'rgba(0,0,0,0.3)',
+                  border: '2px dashed var(--border-glass)',
+                  borderRadius: '12px',
+                  color: 'var(--text-dim)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  minHeight: '80px'
+                }}
+              >
+                <Upload size={20} />
+                <span style={{ fontSize: '13px' }}>{isUploading ? 'Processando...' : 'Clique para enviar imagem'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleBannerSelect}
+                  style={{ display: 'none' }}
+                  disabled={isUploading}
+                />
+              </label>
+              {configBanner && (
+                <div style={{ position: 'relative' }}>
+                  <img
+                    src={configBanner}
+                    alt="Capa"
+                    style={{ width: '120px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border-glass)' }}
+                  />
+                  <button
+                    onClick={removeBanner}
+                    style={{
+                      position: 'absolute',
+                      top: '-6px',
+                      right: '-6px',
+                      width: '20px',
+                      height: '20px',
+                      borderRadius: '50%',
+                      background: '#FF4D4D',
+                      border: 'none',
+                      color: 'white',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: 0
+                    }}
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
