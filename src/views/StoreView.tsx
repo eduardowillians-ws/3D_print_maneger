@@ -333,7 +333,7 @@ export default function StoreView() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1px', background: 'var(--border-glass)' }}>
             {products.map(product => (
-              <div key={product.id} style={{ background: 'var(--bg-main)', padding: '20px' }}>
+              <div key={product.id} style={{ background: 'var(--bg-main)', padding: '20px', overflow: 'hidden', minWidth: 0 }}>
                 <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
                   {product.image_url ? (
                     <img src={product.image_url} alt={product.name} style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px' }} />
@@ -342,9 +342,9 @@ export default function StoreView() {
                       <ImageIcon size={24} style={{ opacity: 0.3 }} />
                     </div>
                   )}
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <h4 style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>{product.name}</h4>
+                      <h4 style={{ fontSize: '14px', fontWeight: 700, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.name}</h4>
                       <button
                         onClick={() => toggleActive(product)}
                         style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', color: product.is_active ? 'var(--secondary)' : 'var(--text-muted)' }}
@@ -354,7 +354,7 @@ export default function StoreView() {
                       </button>
                     </div>
                     {product.description && (
-                      <p style={{ fontSize: '11px', color: 'var(--text-dim)', margin: '4px 0 0', lineHeight: '1.4' }}>
+                      <p style={{ fontSize: '11px', color: 'var(--text-dim)', margin: '4px 0 0', lineHeight: '1.4', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
                         {product.description.substring(0, 60)}{product.description.length > 60 ? '...' : ''}
                       </p>
                     )}

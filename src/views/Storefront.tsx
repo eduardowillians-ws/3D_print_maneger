@@ -360,7 +360,7 @@ export default function Storefront() {
                 <div style={{ padding: '20px' }}>
                   <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '8px' }}>{product.name}</h3>
                   {product.description && (
-                    <p style={{ fontSize: '13px', color: '#888', marginBottom: '12px', lineHeight: '1.5' }}>
+                    <p style={{ fontSize: '13px', color: '#888', marginBottom: '12px', lineHeight: '1.5', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
                       {product.description}
                     </p>
                   )}
