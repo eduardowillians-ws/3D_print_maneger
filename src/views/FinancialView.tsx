@@ -88,6 +88,7 @@ export default function FinancialView() {
         const [year, month, day] = dateStr.split('-');
         return {
           id: t.id,
+          reference_code: t.reference_code,
           description: t.description,
           category: t.category,
           date: `${day}/${month}/${year}`,

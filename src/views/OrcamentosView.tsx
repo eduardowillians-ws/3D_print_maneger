@@ -94,6 +94,7 @@ export default function OrcamentosView() {
         const { data: items } = await quoteItemsApi.getByQuoteId(q.id);
         return {
           id: q.id,
+          reference_code: q.reference_code,
           client: parts[0]?.trim() || 'Cliente',
           date: new Date(q.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
           total: Number(q.total_value),

@@ -263,6 +263,7 @@ export default function ProducaoView() {
         
         return {
           id: j.id,
+          reference_code: j.reference_code,
           name: j.product_name,
           product_name: j.product_name,
           printer: printerName,
