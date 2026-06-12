@@ -19,7 +19,8 @@ import {
   Menu,
   X,
   LogOut,
-  Lock
+  Lock,
+  Store
 } from 'lucide-react';
 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -35,6 +36,7 @@ import ClientsView from '../views/ClientsView';
 import ReportsView from '../views/ReportsView';
 import FinancialView from '../views/FinancialView';
 import SettingsView from '../views/SettingsView';
+import StoreView from '../views/StoreView';
 import ChangePasswordModal from './ChangePasswordModal';
 
 export default function Dashboard() {
@@ -122,6 +124,7 @@ export default function Dashboard() {
           <NavItem icon={<Users size={20} />} label="Clientes" active={activeTab === 'Clientes'} onClick={() => handleTabChange('Clientes')} />
           <NavItem icon={<FileText size={20} />} label="Relatórios" active={activeTab === 'Relatórios'} onClick={() => handleTabChange('Relatórios')} />
           <NavItem icon={<Wallet size={20} />} label="Financeiro" active={activeTab === 'Financeiro'} onClick={() => handleTabChange('Financeiro')} />
+          <NavItem icon={<Store size={20} />} label="Minha Loja" active={activeTab === 'Minha Loja'} onClick={() => handleTabChange('Minha Loja')} />
         </nav>
 
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '20px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -235,6 +238,7 @@ export default function Dashboard() {
           {activeTab === 'Clientes' && <ClientsView />}
           {activeTab === 'Relatórios' && <ReportsView />}
           {activeTab === 'Financeiro' && <FinancialView />}
+          {activeTab === 'Minha Loja' && <StoreView />}
           {activeTab === 'Configurações' && <SettingsView />}
         </div>
 

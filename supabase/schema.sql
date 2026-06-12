@@ -134,6 +134,32 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- Loja Virtual: Produtos da loja online (catálogo público).
+CREATE TABLE IF NOT EXISTS public.store_products (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    description TEXT,
+    price DECIMAL(10,2) DEFAULT 0,
+    image_url TEXT,
+    stock INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT true,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Loja Virtual: Configurações da loja (WhatsApp, banner, textos).
+CREATE TABLE IF NOT EXISTS public.store_config (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+    store_name TEXT DEFAULT 'Minha Loja',
+    store_description TEXT,
+    whatsapp_number TEXT,
+    banner_url TEXT,
+    is_active BOOLEAN DEFAULT true,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- 3. POLICIES (Row Level Security)
 -- Note: These policies currently allow all access for development. 
 -- In production, they should be restricted to authenticated users (auth.uid()).
@@ -148,6 +174,8 @@ ALTER TABLE public.production_jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.production_job_materials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_materials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.store_products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.store_config ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow all for all" ON public.printers FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for all" ON public.materials FOR ALL USING (true) WITH CHECK (true);
@@ -159,3 +187,5 @@ CREATE POLICY "Allow all for all" ON public.production_jobs FOR ALL USING (true)
 CREATE POLICY "Allow all for all" ON public.production_job_materials FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for all" ON public.product_materials FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for all" ON public.transactions FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for all" ON public.store_products FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for all" ON public.store_config FOR ALL USING (true) WITH CHECK (true);

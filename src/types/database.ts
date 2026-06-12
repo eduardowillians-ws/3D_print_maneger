@@ -139,7 +139,31 @@ export interface Transaction {
   created_at: string;
 }
 
-export type DbTable = 'printers' | 'materials' | 'products' | 'clients' | 'quotes' | 'quote_items' | 'production_jobs' | 'transactions';
+export interface StoreProduct {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  image_url: string | null;
+  stock: number;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface StoreConfig {
+  id: string;
+  user_id: string;
+  store_name: string;
+  store_description: string | null;
+  whatsapp_number: string | null;
+  banner_url: string | null;
+  is_active: boolean;
+  updated_at: string;
+}
+
+export type DbTable = 'printers' | 'materials' | 'products' | 'clients' | 'quotes' | 'quote_items' | 'production_jobs' | 'transactions' | 'store_products' | 'store_config';
 
 export interface ApiError {
   message: string;
