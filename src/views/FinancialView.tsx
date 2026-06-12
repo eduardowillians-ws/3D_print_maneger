@@ -27,6 +27,7 @@ import { TransactionType, TransactionStatus } from '../types/database';
 
 interface Transaction {
   id: string;
+  reference_code?: string;
   description: string;
   category: string;
   date: string;
@@ -504,7 +505,7 @@ export default function FinancialView() {
           <tbody>
             {filteredTransactions.map((t) => (
               <tr key={t.id} style={{ borderBottom: '1px solid var(--border-glass)' }}>
-                <td style={{ padding: '16px 24px', color: 'var(--text-dim)', fontSize: '11px' }}>#{t.id}</td>
+                <td style={{ padding: '16px 24px', color: 'var(--primary)', fontSize: '11px', fontWeight: 600 }}>{t.reference_code || t.id.substring(0, 8)}</td>
                 <td style={{ padding: '16px 24px', fontWeight: 700 }}>{t.description}</td>
                 <td style={{ padding: '16px 24px' }}>
                   <span style={{ padding: '4px 8px', borderRadius: '6px', background: 'rgba(138, 43, 226, 0.1)', color: 'var(--primary)', fontSize: '11px', fontWeight: 600 }}>{t.category}</span>
@@ -629,8 +630,8 @@ export default function FinancialView() {
                 </div>
                 <div style={{ border: '1px solid var(--border-glass)', borderRadius: '12px', padding: '16px', background: 'rgba(0,0,0,0.2)' }}>
                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '13px', color: 'var(--text-dim)' }}>ID da Auditoria</span>
-                      <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>{selectedTransaction.id}</span>
+                      <span style={{ fontSize: '13px', color: 'var(--text-dim)' }}>Código de Referência</span>
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>{selectedTransaction.reference_code || selectedTransaction.id.substring(0, 8)}</span>
                    </div>
                 </div>
                 <div style={{ display: 'flex', gap: '12px' }}>

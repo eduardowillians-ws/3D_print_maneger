@@ -37,6 +37,7 @@ type JobStatus = 'PENDENTE' | 'IMPRIMINDO' | 'CONCLUIDO' | 'ARQUIVADO' | 'QUALID
 
 interface ProductionJob {
   id: string;
+  reference_code?: string;
   name: string;
   product_name: string;
   printer: string;
@@ -1231,7 +1232,8 @@ function JobCard({ job, onMove, onDelete, onEdit, onQuality }: { job: Production
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
         <div>
           <h4 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '2px' }}>{job.name}</h4>
-          <span style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600 }}>ID: #{job.id} • {job.customer}</span>
+          <span style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: 600 }}>{job.reference_code || job.id.substring(0, 8)}</span>
+          <span style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600 }}> • {job.customer}</span>
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
            <button onClick={onEdit} style={actionIconStyle} className="btn-hover-effect"><Edit2 size={12} /></button>

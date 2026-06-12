@@ -77,10 +77,12 @@ CREATE TABLE IF NOT EXISTS public.clients (
 -- Orçamentos: Gestão de vendas e aprovações.
 CREATE TABLE IF NOT EXISTS public.quotes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    reference_code VARCHAR(20),
     client_id UUID REFERENCES public.clients(id) ON DELETE SET NULL,
     description TEXT NOT NULL,
     total_value DECIMAL(10,2) DEFAULT 0,
-    status TEXT DEFAULT 'PENDENTE', -- PENDENTE, APROVADO, REJEITADO, PAGO
+    status TEXT DEFAULT 'PENDENTE', -- PENDENTE, ENVIADO, APROVADO, REJEITADO, ARQUIVADO
     expiry_date DATE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -99,6 +101,8 @@ CREATE TABLE IF NOT EXISTS public.quote_items (
 -- Produção (Trabalhos): Fila de impressão e monitoramento de progresso.
 CREATE TABLE IF NOT EXISTS public.production_jobs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    reference_code VARCHAR(20),
     printer_id UUID REFERENCES public.printers(id) ON DELETE SET NULL,
     product_id UUID REFERENCES public.products(id) ON DELETE SET NULL,
     product_name TEXT NOT NULL,
@@ -125,11 +129,13 @@ CREATE TABLE IF NOT EXISTS public.production_job_materials (
 -- Financeiro (Transações): Controle de caixa e auditoria.
 CREATE TABLE IF NOT EXISTS public.transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    reference_code VARCHAR(20),
     description TEXT NOT NULL,
     type TEXT NOT NULL, -- INCOME (Entrada), EXPENSE (Saída)
     category TEXT NOT NULL, -- Vendas, Insumos, Energia, Aluguel, etc.
     value DECIMAL(10,2) NOT NULL,
-    status TEXT DEFAULT 'CONCLUÍDO',
+    status TEXT DEFAULT 'PENDENTE',
     date DATE DEFAULT CURRENT_DATE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );

@@ -1,6 +1,7 @@
 import { baseQueries } from './baseQueries';
 import { ProductionJob, ProductionJobMaterial, ProductionStatus, ApiResponse, ApiResponseSingle } from '../../types/database';
 import { supabase } from '../../lib/supabase';
+import { generateProductionCode } from '../../utils/referenceCodes';
 
 export const productionApi = {
   async getAll(): Promise<ApiResponse<ProductionJob>> {
@@ -12,11 +13,15 @@ export const productionApi = {
   },
 
   async create(job: Partial<ProductionJob>): Promise<ApiResponseSingle<ProductionJob>> {
-    return baseQueries.create<ProductionJob>('production_jobs', job);
+    // Gerar código de referência sequencial
+    const reference_code = await generateProductionCode();
+    return baseQueries.create<ProductionJob>('production_jobs', { ...job, reference_code });
   },
 
   async createWithMaterials(job: Partial<ProductionJob>, materials: Partial<ProductionJobMaterial>[]): Promise<ApiResponseSingle<ProductionJob>> {
-    const { data: jobData, error: jobError } = await baseQueries.create<ProductionJob>('production_jobs', job);
+    // Gerar código de referência sequencial
+    const reference_code = await generateProductionCode();
+    const { data: jobData, error: jobError } = await baseQueries.create<ProductionJob>('production_jobs', { ...job, reference_code });
     if (jobError || !jobData) {
       return { data: null, error: jobError };
     }

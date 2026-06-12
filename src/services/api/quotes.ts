@@ -1,5 +1,6 @@
 import { baseQueries } from './baseQueries';
 import { Quote, QuoteStatus, ApiResponse, ApiResponseSingle } from '../../types/database';
+import { generateQuoteCode } from '../../utils/referenceCodes';
 
 export const quotesApi = {
   async getAll(): Promise<ApiResponse<Quote>> {
@@ -11,7 +12,9 @@ export const quotesApi = {
   },
 
   async create(quote: Partial<Quote>): Promise<ApiResponseSingle<Quote>> {
-    return baseQueries.create<Quote>('quotes', quote);
+    // Gerar código de referência sequencial
+    const reference_code = await generateQuoteCode();
+    return baseQueries.create<Quote>('quotes', { ...quote, reference_code });
   },
 
   async update(id: string, quote: Partial<Quote>): Promise<ApiResponseSingle<Quote>> {
@@ -43,8 +46,8 @@ export const quotesApi = {
     return {
       total: data.length,
       pending: data.filter(q => q.status === 'PENDENTE').length,
-      approved: data.filter(q => q.status === 'APROVADO' || q.status === 'PAGO').length,
-      revenue: data.filter(q => q.status === 'APROVADO' || q.status === 'PAGO').reduce((acc, q) => acc + Number(q.total_value), 0)
+      approved: data.filter(q => q.status === 'APROVADO').length,
+      revenue: data.filter(q => q.status === 'APROVADO').reduce((acc, q) => acc + Number(q.total_value), 0)
     };
   }
 };

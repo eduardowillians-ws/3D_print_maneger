@@ -70,10 +70,12 @@ export interface Client {
   created_at: string;
 }
 
-export type QuoteStatus = 'PENDENTE' | 'APROVADO' | 'REJEITADO' | 'PAGO' | 'ARQUIVADO';
+export type QuoteStatus = 'PENDENTE' | 'ENVIADO' | 'APROVADO' | 'REJEITADO' | 'ARQUIVADO';
 
 export interface Quote {
   id: string;
+  user_id?: string;
+  reference_code?: string;
   client_id: string | null;
   description: string;
   total_value: number;
@@ -96,6 +98,8 @@ export type ProductionStatus = 'FILA' | 'IMPRIMINDO' | 'CONCLUIDO' | 'ARQUIVADO'
 
 export interface ProductionJob {
   id: string;
+  user_id?: string;
+  reference_code?: string;
   printer_id: string | null;
   product_id: string | null;
   product_name: string;
@@ -130,6 +134,8 @@ export type TransactionStatus = 'PENDENTE' | 'CONCLUÍDO' | 'ESTORNADO';
 
 export interface Transaction {
   id: string;
+  user_id?: string;
+  reference_code?: string;
   description: string;
   type: TransactionType;
   category: string;

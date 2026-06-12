@@ -1,6 +1,7 @@
 import { baseQueries } from './baseQueries';
 import { Transaction, TransactionType, TransactionStatus, ApiResponse, ApiResponseSingle } from '../../types/database';
 import { supabase } from '../../lib/supabase';
+import { generateTransactionCode } from '../../utils/referenceCodes';
 
 export const transactionsApi = {
   async getAll(): Promise<ApiResponse<Transaction>> {
@@ -12,7 +13,9 @@ export const transactionsApi = {
   },
 
   async create(transaction: Partial<Transaction>): Promise<ApiResponseSingle<Transaction>> {
-    return baseQueries.create<Transaction>('transactions', transaction);
+    // Gerar código de referência sequencial
+    const reference_code = await generateTransactionCode();
+    return baseQueries.create<Transaction>('transactions', { ...transaction, reference_code });
   },
 
   async update(id: string, transaction: Partial<Transaction>): Promise<ApiResponseSingle<Transaction>> {

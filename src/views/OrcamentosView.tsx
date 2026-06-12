@@ -417,7 +417,7 @@ export default function OrcamentosView() {
                 ) : (
                   activeOrcamentos.map((item) => (
                   <tr key={item.id} style={{ borderBottom: '1px solid var(--border-glass)' }}>
-                    <td style={{ padding: '16px 24px', fontWeight: 600 }}>{item.id}</td>
+                    <td style={{ padding: '16px 24px', fontWeight: 600, color: 'var(--primary)' }}>{item.reference_code || item.id.substring(0, 8)}</td>
                     <td style={{ padding: '16px 24px' }}>{item.client}</td>
                     <td style={{ padding: '16px 24px', color: 'var(--text-dim)' }}>{item.date}</td>
                     <td style={{ padding: '16px 24px', color: 'var(--text-dim)' }}>
@@ -721,7 +721,7 @@ function QuotePreview({ data, onClose }: any) {
               </div>
               <div>
                 <h2 style={{ color: '#1a1a1a', fontSize: '20px', fontWeight: 800, margin: 0 }}>PrintPulse 3D</h2>
-                <p style={{ color: '#888', fontSize: '12px', margin: 0 }}>Proposta Comercial — {data.id}</p>
+                <p style={{ color: '#888', fontSize: '12px', margin: 0 }}>Proposta Comercial — {data.reference_code || data.id.substring(0, 8)}</p>
               </div>
             </div>
             <div style={{ textAlign: 'right', fontSize: '11px', color: '#888', fontWeight: 700, lineHeight: '1.8' }}>
