@@ -10,7 +10,10 @@ import {
   Image as ImageIcon,
   X,
   ShoppingCart,
-  Package
+  Package,
+  User,
+  Phone,
+  MapPin
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { StoreProduct, StoreConfig } from '../types/database';
@@ -20,13 +23,27 @@ interface CartItem {
   quantity: number;
 }
 
+interface CustomerData {
+  name: string;
+  phone: string;
+  address: string;
+}
+
 export default function Storefront() {
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [config, setConfig] = useState<StoreConfig | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCart, setShowCart] = useState(false);
+  const [showCustomerForm, setShowCustomerForm] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [userId, setUserId] = useState<string>('');
+
+  const [customer, setCustomer] = useState<CustomerData>({
+    name: '',
+    phone: '',
+    address: ''
+  });
 
   useEffect(() => {
     const pathParts = window.location.pathname.split('/');
@@ -114,7 +131,54 @@ export default function Storefront() {
     return cart.reduce((total, item) => total + item.quantity, 0);
   };
 
-  const sendWhatsAppOrder = () => {
+  const findOrCreateCustomer = async (): Promise<{ name: string; phone: string; address: string } | null> => {
+    const phoneClean = customer.phone.replace(/\D/g, '');
+    if (phoneClean.length < 10) {
+      alert('Por favor, informe um telefone válido com DDD.');
+      return null;
+    }
+
+    const { data: existingClient } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('phone', customer.phone)
+      .single();
+
+    if (existingClient) {
+      return {
+        name: existingClient.name,
+        phone: existingClient.phone,
+        address: existingClient.address || customer.address
+      };
+    }
+
+    if (!customer.name.trim()) {
+      alert('Por favor, informe seu nome.');
+      return null;
+    }
+
+    const { error } = await supabase
+      .from('clients')
+      .insert({
+        name: customer.name.trim(),
+        phone: customer.phone.trim(),
+        address: customer.address.trim() || null,
+        type: 'Loja Virtual',
+        tags: ['Loja Online']
+      } as never);
+
+    if (error) {
+      console.error('Erro ao cadastrar cliente:', error.message);
+    }
+
+    return {
+      name: customer.name.trim(),
+      phone: customer.phone.trim(),
+      address: customer.address.trim()
+    };
+  };
+
+  const sendWhatsAppOrder = async () => {
     if (cart.length === 0) {
       alert('Adicione itens ao carrinho primeiro!');
       return;
@@ -125,18 +189,52 @@ export default function Storefront() {
       return;
     }
 
+    if (!customer.name.trim()) {
+      alert('Por favor, informe seu nome.');
+      return;
+    }
+
+    if (!customer.phone.trim()) {
+      alert('Por favor, informe seu telefone.');
+      return;
+    }
+
+    setIsProcessing(true);
+
+    const customerData = await findOrCreateCustomer();
+
+    if (!customerData) {
+      setIsProcessing(false);
+      return;
+    }
+
     const itemsList = cart.map(item =>
       `• ${item.product.name} (x${item.quantity}) - R$ ${(item.product.price * item.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
     ).join('\n');
 
     const total = getCartTotal();
     const storeName = config.store_name || 'Loja 3D';
-    const message = `🛒 *Pedido - ${storeName}*\n\n${itemsList}\n\n💰 *Total: R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*\n\nAguardo confirmação!`;
+
+    let message = `🛒 *Pedido - ${storeName}*\n\n`;
+    message += `${itemsList}\n\n`;
+    message += `💰 *Total: R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*\n\n`;
+    message += `👤 *Cliente:* ${customerData.name}\n`;
+    message += `📞 *Tel:* ${customerData.phone}\n`;
+    if (customerData.address) {
+      message += `📍 *End:* ${customerData.address}\n`;
+    }
+    message += `\nAguardo confirmação!`;
 
     const whatsappNumber = config.whatsapp_number.replace(/\D/g, '');
     const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
 
     window.open(url, '_blank');
+
+    setCart([]);
+    setCustomer({ name: '', phone: '', address: '' });
+    setShowCart(false);
+    setShowCustomerForm(false);
+    setIsProcessing(false);
   };
 
   if (isLoading) {
@@ -251,7 +349,6 @@ export default function Storefront() {
                     </p>
                   )}
 
-                  {/* Estoque */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
                     <Package size={14} color={product.stock > 0 ? '#4AE176' : '#F59E0B'} />
                     <span style={{ fontSize: '12px', color: product.stock > 0 ? '#4AE176' : '#F59E0B' }}>
@@ -292,12 +389,10 @@ export default function Storefront() {
 
       {/* Cart Sidebar */}
       {showCart && (
-        <div
-          style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', justifyContent: 'flex-end' }}
-        >
+        <div style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', justifyContent: 'flex-end' }}>
           <div
             style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }}
-            onClick={() => setShowCart(false)}
+            onClick={() => { setShowCart(false); setShowCustomerForm(false); }}
           />
           <div
             style={{
@@ -319,65 +414,145 @@ export default function Storefront() {
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Meu Pedido</h2>
               </div>
               <button
-                onClick={() => setShowCart(false)}
+                onClick={() => { setShowCart(false); setShowCustomerForm(false); }}
                 style={{ background: 'transparent', border: 'none', color: '#888', cursor: 'pointer', padding: '8px' }}
               >
                 <X size={24} />
               </button>
             </div>
 
-            {/* Cart Items */}
+            {/* Cart Content */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-              {cart.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#666' }}>
-                  <ShoppingBag size={48} style={{ marginBottom: '12px', opacity: 0.3 }} />
-                  <p style={{ fontSize: '14px' }}>Seu carrinho está vazio</p>
-                </div>
+              {!showCustomerForm ? (
+                <>
+                  {cart.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px 20px', color: '#666' }}>
+                      <ShoppingBag size={48} style={{ marginBottom: '12px', opacity: 0.3 }} />
+                      <p style={{ fontSize: '14px' }}>Seu carrinho está vazio</p>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {cart.map(item => (
+                        <div key={item.product.id} style={{ display: 'flex', gap: '12px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>
+                          {item.product.image_url ? (
+                            <img src={item.product.image_url} alt={item.product.name} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px' }} />
+                          ) : (
+                            <div style={{ width: '60px', height: '60px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <ImageIcon size={20} style={{ opacity: 0.3 }} />
+                            </div>
+                          )}
+
+                          <div style={{ flex: 1 }}>
+                            <h4 style={{ fontSize: '13px', fontWeight: 600, margin: 0 }}>{item.product.name}</h4>
+                            <p style={{ fontSize: '12px', color: '#8A2BE2', margin: '4px 0 0' }}>
+                              R$ {item.product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </p>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); updateQuantity(item.product.id, -1); }}
+                                style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              >
+                                <Minus size={14} />
+                              </button>
+                              <span style={{ fontSize: '14px', fontWeight: 600, minWidth: '20px', textAlign: 'center' }}>
+                                {item.quantity}
+                              </span>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); updateQuantity(item.product.id, 1); }}
+                                style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              >
+                                <Plus size={14} />
+                              </button>
+
+                              <button
+                                onClick={(e) => { e.stopPropagation(); removeFromCart(item.product.id); }}
+                                style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: '#FF4D4D', cursor: 'pointer', padding: '4px' }}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {cart.map(item => (
-                    <div key={item.product.id} style={{ display: 'flex', gap: '12px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>
-                      {item.product.image_url ? (
-                        <img src={item.product.image_url} alt={item.product.name} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px' }} />
-                      ) : (
-                        <div style={{ width: '60px', height: '60px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <ImageIcon size={20} style={{ opacity: 0.3 }} />
-                        </div>
-                      )}
+                  <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 4px' }}>Seus Dados</h3>
+                    <p style={{ fontSize: '12px', color: '#888', margin: 0 }}>
+                      Preencha para finalizar o pedido
+                    </p>
+                  </div>
 
-                      <div style={{ flex: 1 }}>
-                        <h4 style={{ fontSize: '13px', fontWeight: 600, margin: 0 }}>{item.product.name}</h4>
-                        <p style={{ fontSize: '12px', color: '#8A2BE2', margin: '4px 0 0' }}>
-                          R$ {item.product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </p>
+                  <div style={{ position: 'relative' }}>
+                    <User size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#666' }} />
+                    <input
+                      type="text"
+                      placeholder="Nome completo *"
+                      value={customer.name}
+                      onChange={e => setCustomer(prev => ({ ...prev, name: e.target.value }))}
+                      style={{
+                        width: '100%',
+                        padding: '14px 14px 14px 40px',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '10px',
+                        color: 'white',
+                        fontSize: '14px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); updateQuantity(item.product.id, -1); }}
-                            style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          >
-                            <Minus size={14} />
-                          </button>
-                          <span style={{ fontSize: '14px', fontWeight: 600, minWidth: '20px', textAlign: 'center' }}>
-                            {item.quantity}
-                          </span>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); updateQuantity(item.product.id, 1); }}
-                            style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          >
-                            <Plus size={14} />
-                          </button>
+                  <div style={{ position: 'relative' }}>
+                    <Phone size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#666' }} />
+                    <input
+                      type="tel"
+                      placeholder="Telefone (WhatsApp) *"
+                      value={customer.phone}
+                      onChange={e => setCustomer(prev => ({ ...prev, phone: e.target.value }))}
+                      style={{
+                        width: '100%',
+                        padding: '14px 14px 14px 40px',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '10px',
+                        color: 'white',
+                        fontSize: '14px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
 
-                          <button
-                            onClick={(e) => { e.stopPropagation(); removeFromCart(item.product.id); }}
-                            style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: '#FF4D4D', cursor: 'pointer', padding: '4px' }}
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                  <div style={{ position: 'relative' }}>
+                    <MapPin size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#666' }} />
+                    <input
+                      type="text"
+                      placeholder="Endereço (opcional)"
+                      value={customer.address}
+                      onChange={e => setCustomer(prev => ({ ...prev, address: e.target.value }))}
+                      style={{
+                        width: '100%',
+                        padding: '14px 14px 14px 40px',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '10px',
+                        color: 'white',
+                        fontSize: '14px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+
+                  <p style={{ fontSize: '11px', color: '#666', textAlign: 'center', margin: '4px 0' }}>
+                    Seus dados serão utilizados apenas para esta compra
+                  </p>
                 </div>
               )}
             </div>
@@ -392,32 +567,73 @@ export default function Storefront() {
                   </span>
                 </div>
 
-                <button
-                  onClick={(e) => { e.stopPropagation(); sendWhatsAppOrder(); }}
-                  disabled={!config.whatsapp_number}
-                  style={{
-                    width: '100%',
-                    padding: '16px',
-                    background: config.whatsapp_number ? '#25D366' : '#666',
-                    border: 'none',
-                    borderRadius: '12px',
-                    color: 'white',
-                    cursor: config.whatsapp_number ? 'pointer' : 'not-allowed',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
-                    fontSize: '16px',
-                    fontWeight: 700
-                  }}
-                >
-                  <MessageCircle size={22} /> Comprar via WhatsApp
-                </button>
+                {!showCustomerForm ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowCustomerForm(true); }}
+                    style={{
+                      width: '100%',
+                      padding: '16px',
+                      background: 'linear-gradient(135deg, #8A2BE2, #5B1ED6)',
+                      border: 'none',
+                      borderRadius: '12px',
+                      color: 'white',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '10px',
+                      fontSize: '16px',
+                      fontWeight: 700
+                    }}
+                  >
+                    <MessageCircle size={22} /> Finalizar Pedido
+                  </button>
+                ) : (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); sendWhatsAppOrder(); }}
+                    disabled={isProcessing}
+                    style={{
+                      width: '100%',
+                      padding: '16px',
+                      background: isProcessing ? '#666' : '#25D366',
+                      border: 'none',
+                      borderRadius: '12px',
+                      color: 'white',
+                      cursor: isProcessing ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '10px',
+                      fontSize: '16px',
+                      fontWeight: 700
+                    }}
+                  >
+                    {isProcessing ? (
+                      <Loader2 size={22} style={{ animation: 'spin 1s linear infinite' }} />
+                    ) : (
+                      <MessageCircle size={22} />
+                    )}
+                    {isProcessing ? 'Processando...' : 'Enviar via WhatsApp'}
+                  </button>
+                )}
 
-                {!config.whatsapp_number && (
-                  <p style={{ fontSize: '11px', color: '#F59E0B', textAlign: 'center', marginTop: '8px' }}>
-                    WhatsApp não configurado. Entre em contato com a loja.
-                  </p>
+                {showCustomerForm && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowCustomerForm(false); }}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: 'transparent',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '10px',
+                      color: '#888',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      marginTop: '8px'
+                    }}
+                  >
+                    Voltar ao carrinho
+                  </button>
                 )}
               </div>
             )}
