@@ -37,6 +37,7 @@ interface Client {
   initials: string;
   email: string;
   phone: string;
+  address: string;
   orders: number;
   ltv: number;
   status: 'ATIVO' | 'INATIVO' | 'SUSPENSO';
@@ -67,6 +68,7 @@ export default function ClientsView() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
   const [status, setStatus] = useState<'ATIVO' | 'INATIVO' | 'SUSPENSO'>('ATIVO');
   const [clientType, setClientType] = useState('B2B');
   const clientTypes = ['B2B', 'Prototipagem', 'Hobbyista', 'Educação', 'Outro'];
@@ -114,6 +116,7 @@ export default function ClientsView() {
             initials: c.name.substring(0, 2).toUpperCase(),
             email: c.email || '',
             phone: c.phone || '',
+            address: c.address || '',
             orders: totalOrders,
             ltv,
             status: 'ATIVO' as const,
@@ -154,7 +157,7 @@ export default function ClientsView() {
       name: sanitizedName,
       email: sanitizedEmail,
       phone: sanitizedPhone || null,
-      address: null,
+      address: address.trim() || null,
       tags: null,
       type: clientType
     };
@@ -166,7 +169,7 @@ export default function ClientsView() {
         return;
       }
       setClients(prev => prev.map(c => c.id === editingClient.id ? { 
-        ...c, name, email, phone, status, type: clientType, initials: name.substring(0, 2).toUpperCase() 
+        ...c, name, email, phone, address, status, type: clientType, initials: name.substring(0, 2).toUpperCase() 
       } : c));
       alert('Dados do cliente atualizados!');
     } else {
@@ -182,6 +185,7 @@ export default function ClientsView() {
           initials: data.name.substring(0, 2).toUpperCase(),
           email: data.email || '',
           phone: data.phone || '',
+          address: data.address || '',
           orders: 0,
           ltv: 0,
           status: 'ATIVO',
@@ -207,6 +211,7 @@ export default function ClientsView() {
     setName(client.name);
     setEmail(client.email);
     setPhone(client.phone);
+    setAddress(client.address || '');
     setStatus(client.status);
     setClientType(client.type || 'B2B');
     setShowModal(true);
@@ -232,6 +237,7 @@ const handleDelete = async (id: string) => {
     setName('');
     setEmail('');
     setPhone('');
+    setAddress('');
     setStatus('ATIVO');
     setClientType('B2B');
   };
@@ -353,6 +359,10 @@ const handleDelete = async (id: string) => {
                     <Phone size={16} style={iconOverlayStyle} />
                     <input type="text" style={iconInputStyle} value={phone} onChange={e => setPhone(formatPhone(e.target.value))} placeholder="(00) 00000-0000" />
                   </div>
+                </div>
+                <div className="input-group">
+                  <label>Endereço</label>
+                  <input type="text" style={inputStyle} value={address} onChange={e => setAddress(e.target.value)} placeholder="Rua, número, bairro, cidade" />
                 </div>
                 <div className="input-group">
                   <label>Tipo de Cliente</label>
