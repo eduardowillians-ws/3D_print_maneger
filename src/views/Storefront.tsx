@@ -998,9 +998,6 @@ export default function Storefront() {
                 </div>
                 <span style={{ fontSize: '18px', fontWeight: 700 }}>{config.store_name}</span>
               </div>
-              <p style={{ fontSize: '14px', color: '#666', lineHeight: 1.6, margin: 0 }}>
-                {config.store_description || 'Peças personalizadas produzidas com qualidade e atenção aos detalhes.'}
-              </p>
             </div>
 
             {/* Quick Links */}
