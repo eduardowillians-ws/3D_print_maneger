@@ -45,6 +45,22 @@ export default function Storefront() {
     address: ''
   });
 
+  const formatPhone = (value: string) => {
+    const numbers = value.replace(/\D/g, '').slice(0, 11);
+    if (numbers.length <= 10) {
+      return numbers.replace(/(\d{2})(\d{4})/, '($1) $2');
+    }
+    return numbers.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+  };
+
+  const updateCustomer = (field: keyof CustomerData, value: string) => {
+    if (field === 'phone') {
+      setCustomer(prev => ({ ...prev, phone: formatPhone(value) }));
+    } else {
+      setCustomer(prev => ({ ...prev, [field]: value }));
+    }
+  };
+
   useEffect(() => {
     const pathParts = window.location.pathname.split('/');
     const uid = pathParts[pathParts.length - 1];
@@ -493,7 +509,7 @@ export default function Storefront() {
                       type="text"
                       placeholder="Nome completo *"
                       value={customer.name}
-                      onChange={e => setCustomer(prev => ({ ...prev, name: e.target.value }))}
+                      onChange={e => updateCustomer('name', e.target.value)}
                       style={{
                         width: '100%',
                         padding: '14px 14px 14px 40px',
@@ -514,7 +530,8 @@ export default function Storefront() {
                       type="tel"
                       placeholder="Telefone (WhatsApp) *"
                       value={customer.phone}
-                      onChange={e => setCustomer(prev => ({ ...prev, phone: e.target.value }))}
+                      onChange={e => updateCustomer('phone', e.target.value)}
+                      maxLength={15}
                       style={{
                         width: '100%',
                         padding: '14px 14px 14px 40px',
@@ -535,7 +552,7 @@ export default function Storefront() {
                       type="text"
                       placeholder="Endereço (opcional)"
                       value={customer.address}
-                      onChange={e => setCustomer(prev => ({ ...prev, address: e.target.value }))}
+                      onChange={e => updateCustomer('address', e.target.value)}
                       style={{
                         width: '100%',
                         padding: '14px 14px 14px 40px',

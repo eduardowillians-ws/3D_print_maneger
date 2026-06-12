@@ -143,7 +143,7 @@ export default function ClientsView() {
       return;
     }
 
-    if (!validationUtils.validateEmail(sanitizedEmail)) {
+    if (sanitizedEmail && !validationUtils.validateEmail(sanitizedEmail)) {
       alert('E-mail inválido!');
       return;
     }
@@ -155,7 +155,7 @@ export default function ClientsView() {
 
     const clientData = {
       name: sanitizedName,
-      email: sanitizedEmail,
+      email: sanitizedEmail || null,
       phone: sanitizedPhone || null,
       address: address.trim() || null,
       tags: null,
