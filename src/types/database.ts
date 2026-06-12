@@ -75,13 +75,20 @@ export type QuoteStatus = 'PENDENTE' | 'APROVADO' | 'REJEITADO' | 'PAGO' | 'ARQU
 export interface Quote {
   id: string;
   client_id: string | null;
-  product_id: string | null;
   description: string;
   total_value: number;
-  quantity: number;
-  unit_price: number;
   status: QuoteStatus;
   expiry_date: string | null;
+  created_at: string;
+}
+
+export interface QuoteItem {
+  id: string;
+  quote_id: string;
+  product_id: string | null;
+  description: string;
+  quantity: number;
+  unit_price: number;
   created_at: string;
 }
 
@@ -132,7 +139,7 @@ export interface Transaction {
   created_at: string;
 }
 
-export type DbTable = 'printers' | 'materials' | 'products' | 'clients' | 'quotes' | 'production_jobs' | 'transactions';
+export type DbTable = 'printers' | 'materials' | 'products' | 'clients' | 'quotes' | 'quote_items' | 'production_jobs' | 'transactions';
 
 export interface ApiError {
   message: string;

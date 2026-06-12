@@ -85,6 +85,17 @@ CREATE TABLE IF NOT EXISTS public.quotes (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- Itens do Orçamento: Cada linha representa um produto/serviço dentro de um orçamento.
+CREATE TABLE IF NOT EXISTS public.quote_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    quote_id UUID NOT NULL REFERENCES public.quotes(id) ON DELETE CASCADE,
+    product_id UUID REFERENCES public.products(id) ON DELETE SET NULL,
+    description TEXT NOT NULL,
+    quantity INTEGER DEFAULT 1,
+    unit_price DECIMAL(10,2) DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- Produção (Trabalhos): Fila de impressão e monitoramento de progresso.
 CREATE TABLE IF NOT EXISTS public.production_jobs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -132,6 +143,7 @@ ALTER TABLE public.materials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quotes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.quote_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.production_jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.production_job_materials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_materials ENABLE ROW LEVEL SECURITY;
@@ -142,6 +154,7 @@ CREATE POLICY "Allow all for all" ON public.materials FOR ALL USING (true) WITH 
 CREATE POLICY "Allow all for all" ON public.products FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for all" ON public.clients FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for all" ON public.quotes FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for all" ON public.quote_items FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for all" ON public.production_jobs FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for all" ON public.production_job_materials FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for all" ON public.product_materials FOR ALL USING (true) WITH CHECK (true);

@@ -24,9 +24,18 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
 import { quotesApi } from '../services/api/quotes';
+import { quoteItemsApi } from '../services/api/quoteItems';
 import { clientsApi } from '../services/api/clients';
 import { productsApi } from '../services/api/products';
 import { transactionsApi } from '../services/api/transactions';
+
+interface QuoteItemForm {
+  tempId: string;
+  product_id: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+}
 
 export default function OrcamentosView() {
   const { currencySymbol } = useSettings();
@@ -38,11 +47,8 @@ export default function OrcamentosView() {
   const [showArchive, setShowArchive] = useState(false);
   
   const [client, setClient] = useState('');
-  const [quantity, setQuantity] = useState('1');
-  const [unitValue, setUnitValue] = useState('0');
   const [shipping, setShipping] = useState('0');
   const [expiryDate, setExpiryDate] = useState('');
-  const [subtotal, setSubtotal] = useState(0);
   const [totalFinal, setTotalFinal] = useState(0);
 
   const [orcamentos, setOrcamentos] = useState<any[]>([]);
@@ -50,7 +56,8 @@ export default function OrcamentosView() {
   const [clientsList, setClientsList] = useState<any[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [productsList, setProductsList] = useState<any[]>([]);
-  const [selectedProductId, setSelectedProductId] = useState<string>('');
+
+  const [formItems, setFormItems] = useState<QuoteItemForm[]>([]);
 
   useEffect(() => {
     loadQuotes();
@@ -82,24 +89,27 @@ export default function OrcamentosView() {
     }
     
     if (data) {
-      const mappedData = data.map(q => {
+      const mappedData = await Promise.all(data.map(async q => {
         const parts = q.description.split('-');
-        const qty = q.quantity ?? 1;
-        const unitVal = q.unit_price ? Number(q.unit_price) : Number(q.total_value);
+        const { data: items } = await quoteItemsApi.getByQuoteId(q.id);
         return {
           id: q.id,
           client: parts[0]?.trim() || 'Cliente',
           date: new Date(q.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
           total: Number(q.total_value),
           status: q.status,
-          unitValue: unitVal.toString(),
-          quantity: qty.toString(),
           shipping: '0',
           expiryDate: q.expiry_date || '',
           clientId: q.client_id,
-          productId: q.product_id || ''
+          items: (items || []).map((item: any) => ({
+            id: item.id,
+            productId: item.product_id || '',
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: Number(item.unit_price)
+          }))
         };
-      });
+      }));
       setOrcamentos(mappedData);
     }
     setIsLoading(false);
@@ -134,25 +144,52 @@ export default function OrcamentosView() {
     : 0;
 
   useEffect(() => {
-    const q = parseFloat(quantity) || 0;
-    const v = parseFloat(unitValue.toString().replace(',', '.')) || 0;
+    const itemsTotal = formItems.reduce((acc, item) => {
+      return acc + (item.quantity * item.unit_price);
+    }, 0);
     const s = parseFloat(shipping.toString().replace(',', '.')) || 0;
-    setSubtotal(q * v);
-    setTotalFinal(q * v + s);
-  }, [quantity, unitValue, shipping]);
+    setTotalFinal(itemsTotal + s);
+  }, [formItems, shipping]);
+
+  const addFormItem = () => {
+    setFormItems(prev => [...prev, {
+      tempId: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      product_id: '',
+      description: '',
+      quantity: 1,
+      unit_price: 0
+    }]);
+  };
+
+  const removeFormItem = (tempId: string) => {
+    setFormItems(prev => prev.filter(item => item.tempId !== tempId));
+  };
+
+  const updateFormItem = (tempId: string, field: keyof QuoteItemForm, value: any) => {
+    setFormItems(prev => prev.map(item => {
+      if (item.tempId !== tempId) return item;
+      const updated = { ...item, [field]: value };
+      if (field === 'product_id') {
+        const product = productsList.find(p => p.id === value);
+        if (product) {
+          updated.description = product.name;
+          updated.unit_price = product.suggested_price || (product as any).price || 0;
+        }
+      }
+      return updated;
+    }));
+  };
 
   const handleSave = async () => {
     if (!client.trim()) { alert('Por favor, informe o nome do cliente.'); return; }
+    if (formItems.length === 0) { alert('Por favor, adicione pelo menos um item ao orçamento.'); return; }
 
     const quoteData = {
       description: `${client.trim()} - Orçamento`,
       total_value: totalFinal,
       status: 'PENDENTE' as const,
       expiry_date: expiryDate || null,
-      client_id: selectedClientId || null,
-      product_id: selectedProductId || null,
-      quantity: parseInt(quantity) || 1,
-      unit_price: parseFloat(unitValue.toString().replace(',', '.')) || 0
+      client_id: selectedClientId || null
     };
 
     if (editingItem) {
@@ -161,9 +198,30 @@ export default function OrcamentosView() {
         alert('Erro ao atualizar orçamento: ' + error.message);
         return;
       }
+
+      await quoteItemsApi.deleteByQuoteId(editingItem.id);
+
+      const itemsToCreate = formItems.map(item => ({
+        quote_id: editingItem.id,
+        product_id: item.product_id || null,
+        description: item.description,
+        quantity: item.quantity,
+        unit_price: item.unit_price
+      }));
+      const { error: itemsError } = await quoteItemsApi.createMany(itemsToCreate);
+      if (itemsError) {
+        alert('Erro ao salvar itens: ' + itemsError.message);
+        return;
+      }
+
       setOrcamentos(prev => prev.map(item => 
         item.id === editingItem.id 
-          ? { ...item, client: client.trim(), unitValue, quantity, shipping, total: totalFinal, productId: selectedProductId } 
+          ? { ...item, client: client.trim(), shipping, total: totalFinal, items: formItems.map(fi => ({
+              productId: fi.product_id,
+              description: fi.description,
+              quantity: fi.quantity,
+              unit_price: fi.unit_price
+            }))}
           : item
       ));
     } else {
@@ -173,17 +231,33 @@ export default function OrcamentosView() {
         return;
       }
       if (data) {
+        const itemsToCreate = formItems.map(item => ({
+          quote_id: data.id,
+          product_id: item.product_id || null,
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: item.unit_price
+        }));
+        const { error: itemsError } = await quoteItemsApi.createMany(itemsToCreate);
+        if (itemsError) {
+          alert('Erro ao salvar itens: ' + itemsError.message);
+          return;
+        }
+
         const newQuote = {
           id: data.id,
           client: client.trim(),
           date: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
           status: 'PENDENTE',
-          unitValue: unitValue,
-          quantity: quantity,
           shipping: shipping,
           total: totalFinal,
           expiryDate: expiryDate,
-          productId: selectedProductId || ''
+          items: formItems.map(fi => ({
+            productId: fi.product_id,
+            description: fi.description,
+            quantity: fi.quantity,
+            unit_price: fi.unit_price
+          }))
         };
         setOrcamentos(prev => [newQuote, ...prev]);
       }
@@ -194,17 +268,26 @@ export default function OrcamentosView() {
   const handleEdit = (item: any) => {
     setEditingItem(item);
     setClient(item.client);
-    setQuantity(item.quantity);
-    setUnitValue(item.unitValue);
     setShipping(item.shipping);
     setSelectedClientId(item.clientId || '');
-    setSelectedProductId(item.productId || '');
+    setExpiryDate(item.expiryDate || '');
+
+    const loadedItems: QuoteItemForm[] = (item.items || []).map((qi: any, idx: number) => ({
+      tempId: `edit_${idx}_${Date.now()}`,
+      product_id: qi.productId || '',
+      description: qi.description || '',
+      quantity: qi.quantity || 1,
+      unit_price: qi.unit_price || 0
+    }));
+    setFormItems(loadedItems.length > 0 ? loadedItems : []);
+
     setShowAddModal(true);
     setActiveMenu(null);
   };
 
   const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir este orçamento?')) {
+      await quoteItemsApi.deleteByQuoteId(id);
       const { error } = await quotesApi.delete(id);
       if (error) {
         alert('Erro ao excluir orçamento: ' + error.message);
@@ -232,9 +315,11 @@ export default function OrcamentosView() {
     if (shouldCreateTransaction) {
       const clientInfo = clientsList.find(c => c.id === orcamento.clientId);
       const clientName = clientInfo?.name || 'Cliente Avulso';
+      const itemCount = orcamento.items?.length || 0;
+      const itemSummary = itemCount === 1 ? orcamento.items[0].description : `${itemCount} itens`;
       
       const transactionData = {
-        description: `Orçamento aprovado: ${orcamento.productName || 'Serviço'} - ${clientName}`,
+        description: `Orçamento aprovado: ${itemSummary} - ${clientName}`,
         type: 'INCOME' as const,
         category: 'Vendas',
         value: orcamento.total,
@@ -252,23 +337,24 @@ export default function OrcamentosView() {
   };
 
   const handleShowPreview = async (item: any) => {
-    let productName = 'Serviço de Manufatura 3D';
-    if (item.productId) {
-      const selectedProduct = productsList.find(p => p.id === item.productId);
-      if (selectedProduct) {
-        productName = selectedProduct.name;
+    const itemsWithNames = (item.items || []).map((qi: any) => {
+      let productName = qi.description || 'Serviço de Manufatura 3D';
+      if (qi.productId) {
+        const product = productsList.find(p => p.id === qi.productId);
+        if (product) productName = product.name;
       }
-    }
-    setPreviewData({ ...item, productName });
+      return { ...qi, productName };
+    });
+    setPreviewData({ ...item, items: itemsWithNames });
     setShowPreview(true);
     setActiveMenu(null);
   };
 
   const resetForm = () => {
-    setClient(''); setQuantity('1'); setUnitValue('0'); setShipping('0');
+    setClient(''); setShipping('0');
     setExpiryDate(''); setEditingItem(null); setShowAddModal(false);
     setSelectedClientId('');
-    setSelectedProductId('');
+    setFormItems([]);
   };
 
   return (
@@ -286,7 +372,7 @@ export default function OrcamentosView() {
           >
             <HistoryIcon size={18} /> {showArchive ? 'Voltar aos Ativos' : 'Histórico'}
           </button>
-          <button className="btn-primary" style={{ padding: '12px 24px', fontSize: '15px' }} onClick={() => setShowAddModal(true)}>
+          <button className="btn-primary" style={{ padding: '12px 24px', fontSize: '15px' }} onClick={() => { setFormItems([]); setShowAddModal(true); }}>
             <Plus size={20} /> Criar Novo Orçamento
           </button>
         </div>
@@ -307,6 +393,7 @@ export default function OrcamentosView() {
                   <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>ID</th>
                   <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>Cliente</th>
                   <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>Emitido</th>
+                  <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>Itens</th>
                   <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>Total Final</th>
                   <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500 }}>Status</th>
                   <th style={{ padding: '16px 24px', color: 'var(--text-dim)', fontWeight: 500, textAlign: 'right' }}>Ações</th>
@@ -315,14 +402,14 @@ export default function OrcamentosView() {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={6} style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    <td colSpan={7} style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
                       <Loader2 size={32} className="animate-spin" style={{ animation: 'spin 1s linear infinite', marginRight: '12px' }} />
                       Carregando orçamentos...
                     </td>
                   </tr>
                 ) : activeOrcamentos.length === 0 ? (
                   <tr>
-                    <td colSpan={6} style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    <td colSpan={7} style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
                       <FileText size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
                       <p>Nenhum orçamento ativo encontrado</p>
                     </td>
@@ -333,6 +420,9 @@ export default function OrcamentosView() {
                     <td style={{ padding: '16px 24px', fontWeight: 600 }}>{item.id}</td>
                     <td style={{ padding: '16px 24px' }}>{item.client}</td>
                     <td style={{ padding: '16px 24px', color: 'var(--text-dim)' }}>{item.date}</td>
+                    <td style={{ padding: '16px 24px', color: 'var(--text-dim)' }}>
+                      {item.items?.length || 0} {item.items?.length === 1 ? 'item' : 'itens'}
+                    </td>
                     <td style={{ padding: '16px 24px', fontWeight: 700 }}>{currencySymbol} {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                     <td style={{ padding: '16px 24px' }}><StatusBadge status={item.status} /></td>
                     <td style={{ padding: '16px 24px', position: 'relative', textAlign: 'right' }}>
@@ -433,52 +523,117 @@ export default function OrcamentosView() {
                 </div>
               </div>
 
-              <div className="input-group">
-                <label>Produto</label>
-                <div style={{ position: 'relative' }}>
-                  <Package size={16} style={iconOverlayStyle} />
-                  <select 
-                    value={selectedProductId} 
-                    onChange={e => {
-                      const selectedId = e.target.value;
-                      setSelectedProductId(selectedId);
-                      const selectedProduct = productsList.find(p => p.id === selectedId);
-                      if (selectedProduct) {
-                        const price = selectedProduct.suggested_price || (selectedProduct as any).price || 0;
-                        setUnitValue(price.toString().replace('.', ','));
-                      }
-                    }} 
-                    style={{ ...iconInputStyle, cursor: 'pointer' }}
+              {/* Itens do orçamento */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-dim)' }}>Itens do Orçamento</label>
+                  <button 
+                    type="button" 
+                    onClick={addFormItem}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(138, 43, 226, 0.15)', border: '1px solid var(--primary)', color: 'var(--primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}
                   >
-                    <option value="" style={{ color: '#888' }}>Selecione um produto...</option>
-                    {productsList.map(p => {
-                      const price = p.suggested_price || (p as any).price || 0;
-                      return (
-                        <option key={p.id} value={p.id} style={{ color: '#fff' }}>{p.name} - R$ {Number(price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</option>
-                      );
-                    })}
-                  </select>
+                    <Plus size={14} /> Adicionar Item
+                  </button>
+                </div>
+
+                {formItems.length === 0 && (
+                  <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed var(--border-glass)' }}>
+                    <Package size={32} style={{ marginBottom: '8px', opacity: 0.4 }} />
+                    <p style={{ fontSize: '13px' }}>Nenhum item adicionado. Clique em "Adicionar Item" para começar.</p>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {formItems.map((item, index) => (
+                    <div key={item.tempId} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-glass)', borderRadius: '12px', padding: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Item {index + 1}
+                        </span>
+                        {formItems.length > 1 && (
+                          <button 
+                            type="button" 
+                            onClick={() => removeFormItem(item.tempId)}
+                            style={{ background: 'transparent', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div className="input-group">
+                          <label style={{ fontSize: '11px' }}>Produto</label>
+                          <div style={{ position: 'relative' }}>
+                            <Package size={14} style={iconOverlayStyleSmall} />
+                            <select 
+                              value={item.product_id} 
+                              onChange={e => updateFormItem(item.tempId, 'product_id', e.target.value)} 
+                              style={{ ...iconInputStyleSmall, cursor: 'pointer' }}
+                            >
+                              <option value="" style={{ color: '#888' }}>Selecione um produto...</option>
+                              {productsList.map(p => {
+                                const price = p.suggested_price || (p as any).price || 0;
+                                return (
+                                  <option key={p.id} value={p.id} style={{ color: '#fff' }}>{p.name} - R$ {Number(price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</option>
+                                );
+                              })}
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="input-group">
+                          <label style={{ fontSize: '11px' }}>Descrição</label>
+                          <input 
+                            type="text" 
+                            value={item.description} 
+                            onChange={e => updateFormItem(item.tempId, 'description', e.target.value)} 
+                            placeholder="Descrição do item..."
+                            style={inputStyleSmall} 
+                          />
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                          <div className="input-group">
+                            <label style={{ fontSize: '11px' }}>Quantidade</label>
+                            <div style={{ position: 'relative' }}>
+                              <Hash size={14} style={iconOverlayStyleSmall} />
+                              <input 
+                                type="number" 
+                                min="1"
+                                value={item.quantity} 
+                                onChange={e => updateFormItem(item.tempId, 'quantity', parseInt(e.target.value) || 1)} 
+                                style={iconInputStyleSmall} 
+                              />
+                            </div>
+                          </div>
+                          <div className="input-group">
+                            <label style={{ fontSize: '11px' }}>Valor Unitário ({currencySymbol})</label>
+                            <div style={{ position: 'relative' }}>
+                              <div style={iconOverlayStyleSmall}>{currencySymbol}</div>
+                              <input 
+                                type="text" 
+                                placeholder="0,00" 
+                                value={item.unit_price > 0 ? item.unit_price.toString().replace('.', ',') : ''} 
+                                onChange={e => updateFormItem(item.tempId, 'unit_price', parseFloat(e.target.value.replace(',', '.')) || 0)} 
+                                style={{ ...iconInputStyleSmall, paddingLeft: '32px' }} 
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ textAlign: 'right', fontSize: '12px', color: 'var(--text-dim)' }}>
+                          Subtotal: <strong style={{ color: 'var(--secondary)' }}>
+                            {currencySymbol} {(item.quantity * item.unit_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div className="input-group">
-                  <label>Quantidade</label>
-                  <div style={{ position: 'relative' }}>
-                    <Hash size={16} style={iconOverlayStyle} />
-                    <input type="number" value={quantity} onChange={e => setQuantity(e.target.value)} style={iconInputStyle} />
-                  </div>
-                </div>
-                <div className="input-group">
-                  <label>Valor Unitário ({currencySymbol})</label>
-                  <div style={{ position: 'relative' }}>
-                    <div style={iconOverlayStyle}>{currencySymbol}</div>
-                    <input type="text" placeholder="0,00" value={unitValue} onChange={e => setUnitValue(e.target.value)} style={{ ...iconInputStyle, paddingLeft: '36px' }} />
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '16px' }}>
                 <div className="input-group">
                   <label>Expiração</label>
                   <div style={{ position: 'relative' }}>
@@ -526,9 +681,13 @@ export default function OrcamentosView() {
 function QuotePreview({ data, onClose }: any) {
   const { currencySymbol } = useSettings();
   const handlePrint = () => window.print();
-  const quantityNum = parseInt(data.quantity) || 1;
-  const unitValNum = parseFloat(data.unitValue?.toString().replace(',', '.')) || 0;
-  const subtotalVal = quantityNum * unitValNum;
+
+  const items = data.items || [];
+  const subtotalVal = items.reduce((acc: number, item: any) => {
+    const qty = parseInt(item.quantity) || 1;
+    const price = parseFloat(item.unit_price?.toString().replace(',', '.')) || 0;
+    return acc + (qty * price);
+  }, 0);
   const shippingVal = parseFloat(data.shipping?.toString().replace(',', '.')) || 0;
 
   return (
@@ -542,13 +701,11 @@ function QuotePreview({ data, onClose }: any) {
         }
       `}</style>
 
-      {/* Overlay — é o container flex que centraliza o modal */}
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         onClick={onClose}
         style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
       >
-        {/* Modal — filho do overlay; stopPropagation evita fechar ao clicar dentro */}
         <motion.div
           initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
@@ -592,12 +749,19 @@ function QuotePreview({ data, onClose }: any) {
                 <span style={{ flex: 1, textAlign: 'right' }}>V. Unitário</span>
                 <span style={{ flex: 1, textAlign: 'right' }}>Subtotal</span>
               </div>
-              <div style={{ display: 'flex', padding: '16px 20px', borderTop: '1px solid #f0f0f0', fontSize: '13px', color: '#333' }}>
-                <span style={{ flex: 3 }}>{data.productName || 'Serviço de Manufatura 3D'}</span>
-                <span style={{ flex: 1, textAlign: 'center' }}>{data.quantity}</span>
-                <span style={{ flex: 1, textAlign: 'right' }}>{currencySymbol} {parseFloat(data.unitValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                <span style={{ flex: 1, textAlign: 'right' }}>{currencySymbol} {subtotalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
+              {items.map((item: any, index: number) => {
+                const qty = parseInt(item.quantity) || 1;
+                const price = parseFloat(item.unit_price?.toString().replace(',', '.')) || 0;
+                const itemSubtotal = qty * price;
+                return (
+                  <div key={index} style={{ display: 'flex', padding: '16px 20px', borderTop: '1px solid #f0f0f0', fontSize: '13px', color: '#333' }}>
+                    <span style={{ flex: 3 }}>{item.productName || item.description || 'Serviço de Manufatura 3D'}</span>
+                    <span style={{ flex: 1, textAlign: 'center' }}>{qty}</span>
+                    <span style={{ flex: 1, textAlign: 'right' }}>{currencySymbol} {price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    <span style={{ flex: 1, textAlign: 'right' }}>{currencySymbol} {itemSubtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                );
+              })}
               {shippingVal > 0 && (
                 <div style={{ display: 'flex', padding: '16px 20px', borderTop: '1px solid #f0f0f0', fontSize: '13px', color: '#333' }}>
                   <span style={{ flex: 3 }}>Frete / Logística</span>
@@ -690,10 +854,13 @@ function Modal({ title, children, onClose }: any) {
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 const modalOverlayStyle: any = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' };
-const modalContentStyle: any = { width: '100%', maxWidth: '540px', background: 'var(--bg-main)', border: '1px solid var(--border-glass)', borderRadius: '24px', padding: '32px' };
+const modalContentStyle: any = { width: '100%', maxWidth: '620px', maxHeight: '90vh', background: 'var(--bg-main)', border: '1px solid var(--border-glass)', borderRadius: '24px', padding: '32px', overflowY: 'auto' };
 const inputStyle: any = { width: '100%', padding: '14px 16px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-glass)', borderRadius: '12px', color: 'white', fontSize: '14px', outline: 'none' };
 const iconInputStyle: any = { ...inputStyle, paddingLeft: '44px' };
 const iconOverlayStyle: any = { position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' };
+const inputStyleSmall: any = { width: '100%', padding: '10px 12px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-glass)', borderRadius: '8px', color: 'white', fontSize: '13px', outline: 'none' };
+const iconInputStyleSmall: any = { ...inputStyleSmall, paddingLeft: '36px' };
+const iconOverlayStyleSmall: any = { position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none', fontSize: '12px' };
 const actionTriggerStyle: any = { background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', padding: '8px' };
 const dropdownStyle: any = { position: 'absolute', right: '0', top: '40px', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '12px', padding: '8px', zIndex: 100, minWidth: '180px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' };
 const dropdownItemStyle: any = { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', color: 'var(--text-main)' };

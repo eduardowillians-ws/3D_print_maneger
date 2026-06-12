@@ -159,6 +159,43 @@ export const baseQueries = {
       const error = err as Error;
       return { count: 0, error: createError(error.message) };
     }
+  },
+
+  async getAllByField<T>(table: DbTable, field: string, value: string): Promise<ApiResponse<T>> {
+    try {
+      const { data, error } = await supabase
+        .from(table)
+        .select('*')
+        .eq(field, value)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        return { data: null, error: createError(error.message, error.details) };
+      }
+
+      return { data: data as T[], error: null };
+    } catch (err) {
+      const error = err as Error;
+      return { data: null, error: createError(error.message) };
+    }
+  },
+
+  async deleteByField(table: DbTable, field: string, value: string): Promise<{ success: boolean; error: ApiError | null }> {
+    try {
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq(field, value);
+
+      if (error) {
+        return { success: false, error: createError(error.message, error.details) };
+      }
+
+      return { success: true, error: null };
+    } catch (err) {
+      const error = err as Error;
+      return { success: false, error: createError(error.message) };
+    }
   }
 };
 
