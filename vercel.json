@@ -1,4 +1,14 @@
 {
+  "rewrites": [
+    {
+      "source": "/loja/:userId",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/loja/:userId/:path*",
+      "destination": "/index.html"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

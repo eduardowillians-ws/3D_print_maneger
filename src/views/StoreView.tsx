@@ -14,7 +14,9 @@ import {
   Link,
   MessageCircle,
   Copy,
-  Check
+  Check,
+  Info,
+  Instagram
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
@@ -45,7 +47,20 @@ export default function StoreView() {
   const [configWhatsapp, setConfigWhatsapp] = useState('');
   const [configDescription, setConfigDescription] = useState('');
   const [configBanner, setConfigBanner] = useState<string | null>(null);
+  const [configAbout, setConfigAbout] = useState('');
+  const [socialLinks, setSocialLinks] = useState<Record<string, { url: string; enabled: boolean }>>({});
   const [isSavingConfig, setIsSavingConfig] = useState(false);
+
+  const availableSocials = [
+    { id: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/sua-pagina' },
+    { id: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/seu-perfil' },
+    { id: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@seu-perfil' },
+    { id: 'youtube', label: 'YouTube', placeholder: 'https://youtube.com/@seu-canal' },
+    { id: 'twitter', label: 'X (Twitter)', placeholder: 'https://x.com/seu-perfil' },
+    { id: 'linkedin', label: 'LinkedIn', placeholder: 'https://linkedin.com/company/sua-empresa' },
+    { id: 'pinterest', label: 'Pinterest', placeholder: 'https://pinterest.com/seu-perfil' },
+    { id: 'email', label: 'E-mail', placeholder: 'contato@loja.com' }
+  ];
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const saveConfigTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -60,6 +75,12 @@ export default function StoreView() {
       setConfigWhatsapp(config.whatsapp_number || '');
       setConfigDescription(config.store_description || '');
       setConfigBanner(config.banner_url || null);
+      setConfigAbout(config.about_text || '');
+      let links = config.social_links || {};
+      if (typeof links === 'string') {
+        try { links = JSON.parse(links); } catch { links = {}; }
+      }
+      setSocialLinks(links);
     }
   }, [config]);
 
@@ -222,6 +243,35 @@ export default function StoreView() {
       saveConfig('store_description', configDescription);
     }, 500);
   }, [configName, configWhatsapp, configDescription, saveConfig]);
+
+  const handleAboutBlur = useCallback(() => {
+    saveConfig('about_text', configAbout);
+  }, [configAbout, saveConfig]);
+
+  const updateSocialLink = (networkId: string, field: 'url' | 'enabled', value: string | boolean) => {
+    setSocialLinks(prev => {
+      const updated = { ...prev };
+      if (!updated[networkId]) {
+        updated[networkId] = { url: '', enabled: false };
+      }
+      updated[networkId] = { ...updated[networkId], [field]: value };
+      return updated;
+    });
+  };
+
+  const saveSocialLinks = useCallback(async () => {
+    if (!config) return;
+    setIsSavingConfig(true);
+    console.log('Salvando social_links:', socialLinks);
+    const { data, error } = await storeConfigApi.update({ social_links: socialLinks });
+    if (error) {
+      console.error('Erro ao salvar redes sociais:', error.message);
+    } else {
+      console.log('Redes sociais salvas com sucesso:', data?.social_links);
+    }
+    if (data) setConfig(data);
+    setIsSavingConfig(false);
+  }, [socialLinks, config]);
 
   const handleConfigChange = (field: 'name' | 'whatsapp' | 'description', value: string) => {
     if (field === 'name') setConfigName(value);
@@ -404,6 +454,103 @@ export default function StoreView() {
               <MessageCircle size={14} /> WhatsApp
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Sobre Nós */}
+      <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+          <Info size={20} color="var(--primary)" />
+          <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Sobre Nós</h3>
+          {isSavingConfig && <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', color: 'var(--text-dim)' }} />}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
+          <div className="input-group">
+            <label>Texto Institucional</label>
+            <p style={{ fontSize: '12px', color: 'var(--text-dim)', margin: '0 0 8px' }}>
+              Conte a história da sua empresa, diferenciais, processo de produção...
+            </p>
+            <textarea
+              value={configAbout}
+              onChange={e => setConfigAbout(e.target.value)}
+              onBlur={handleAboutBlur}
+              rows={6}
+              placeholder="Ex: Somos especializados em impressão 3D de alta qualidade. Utilizamos materiais premium e oferecemos personalização completa..."
+              style={{ width: '100%', padding: '12px 16px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-glass)', borderRadius: '12px', color: 'white', fontSize: '14px', outline: 'none', resize: 'vertical', lineHeight: '1.6' }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Redes Sociais e Contato */}
+      <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Instagram size={20} color="var(--primary)" />
+            <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Redes Sociais</h3>
+          </div>
+          <button
+            onClick={saveSocialLinks}
+            style={{ padding: '8px 16px', background: 'var(--primary)', border: 'none', borderRadius: '8px', color: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Save size={14} /> Salvar
+          </button>
+        </div>
+
+        <p style={{ fontSize: '12px', color: 'var(--text-dim)', margin: '0 0 16px' }}>
+          Selecione as redes sociais que deseja exibir no rodapé da loja e adicione os links.
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {availableSocials.map(social => {
+            const linkData = socialLinks[social.id] || { url: '', enabled: false };
+            return (
+              <div
+                key={social.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '12px 16px',
+                  background: linkData.enabled ? 'rgba(138,43,226,0.08)' : 'rgba(0,0,0,0.2)',
+                  border: `1px solid ${linkData.enabled ? 'rgba(138,43,226,0.3)' : 'var(--border-glass)'}`,
+                  borderRadius: '10px',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', minWidth: '120px' }}>
+                  <input
+                    type="checkbox"
+                    checked={linkData.enabled}
+                    onChange={e => updateSocialLink(social.id, 'enabled', e.target.checked)}
+                    style={{ width: '18px', height: '18px', accentColor: '#8A2BE2', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: '14px', fontWeight: 500, color: linkData.enabled ? '#fff' : '#888' }}>
+                    {social.label}
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  placeholder={social.placeholder}
+                  value={linkData.url}
+                  onChange={e => updateSocialLink(social.id, 'url', e.target.value)}
+                  disabled={!linkData.enabled}
+                  style={{
+                    flex: 1,
+                    padding: '10px 12px',
+                    background: 'rgba(0,0,0,0.3)',
+                    border: '1px solid var(--border-glass)',
+                    borderRadius: '8px',
+                    color: linkData.enabled ? 'white' : '#555',
+                    fontSize: '13px',
+                    outline: 'none',
+                    opacity: linkData.enabled ? 1 : 0.5
+                  }}
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
 

@@ -156,6 +156,8 @@ CREATE TABLE IF NOT EXISTS public.store_config (
     store_description TEXT,
     whatsapp_number TEXT,
     banner_url TEXT,
+    about_text TEXT,
+    social_links JSONB DEFAULT '{}'::jsonb,
     is_active BOOLEAN DEFAULT true,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );

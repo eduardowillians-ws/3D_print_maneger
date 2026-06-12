@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   ShoppingBag,
   Plus,
@@ -17,7 +17,13 @@ import {
   Truck,
   Zap,
   Shield,
-  RefreshCw
+  RefreshCw,
+  Home,
+  Grid3X3,
+  Info,
+  Mail,
+  Instagram,
+  Send
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { StoreProduct, StoreConfig } from '../types/database';
@@ -33,6 +39,17 @@ interface CustomerData {
   address: string;
 }
 
+const socialIcons: Record<string, { icon: typeof Instagram; label: string; color: string }> = {
+  facebook: { icon: Send, label: 'Facebook', color: '#1877F2' },
+  instagram: { icon: Instagram, label: 'Instagram', color: '#E1306C' },
+  tiktok: { icon: Send, label: 'TikTok', color: '#000000' },
+  youtube: { icon: Send, label: 'YouTube', color: '#FF0000' },
+  twitter: { icon: Send, label: 'X (Twitter)', color: '#1DA1F2' },
+  linkedin: { icon: Send, label: 'LinkedIn', color: '#0A66C2' },
+  pinterest: { icon: Send, label: 'Pinterest', color: '#BD081C' },
+  email: { icon: Mail, label: 'E-mail', color: '#8A2BE2' }
+};
+
 export default function Storefront() {
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [config, setConfig] = useState<StoreConfig | null>(null);
@@ -42,6 +59,10 @@ export default function Storefront() {
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [userId, setUserId] = useState<string>('');
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const navbarRef = useRef<HTMLElement>(null);
 
   const [customer, setCustomer] = useState<CustomerData>({
     name: '',
@@ -74,6 +95,14 @@ export default function Storefront() {
     }
   }, []);
 
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const loadStoreData = async (uid: string) => {
     setIsLoading(true);
 
@@ -93,9 +122,20 @@ export default function Storefront() {
     ]);
 
     if (productsResult.data) setProducts(productsResult.data as StoreProduct[]);
-    if (configResult.data) setConfig(configResult.data as StoreConfig);
+    if (configResult.data) {
+      const cfg = configResult.data as StoreConfig;
+      if (cfg.social_links && typeof cfg.social_links === 'string') {
+        try { cfg.social_links = JSON.parse(cfg.social_links as unknown as string); } catch { cfg.social_links = {}; }
+      }
+      setConfig(cfg);
+    }
 
     setIsLoading(false);
+  };
+
+  const scrollToSection = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+    setMobileMenuOpen(false);
   };
 
   const addToCart = (product: StoreProduct) => {
@@ -275,27 +315,249 @@ export default function Storefront() {
     );
   }
 
-  const scrollToProducts = () => {
-    document.getElementById('products-section')?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const navLinks = [
+    { label: 'Início', id: 'hero', icon: Home },
+    { label: 'Produtos', id: 'products-section', icon: Grid3X3 },
+    { label: 'Sobre', id: 'about-section', icon: Info },
+    { label: 'Contato', id: 'footer-section', icon: Mail }
+  ];
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#fff' }}>
+    <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#fff', position: 'relative', overflowX: 'hidden' }}>
+      {/* Background Glow Effects */}
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none', zIndex: 0 }}>
+        <div style={{
+          position: 'absolute',
+          top: '0',
+          left: '20%',
+          width: '600px',
+          height: '600px',
+          background: 'radial-gradient(circle, rgba(138,43,226,0.08) 0%, transparent 70%)',
+          borderRadius: '50%',
+          filter: 'blur(80px)'
+        }} />
+        <div style={{
+          position: 'absolute',
+          top: '40%',
+          right: '10%',
+          width: '500px',
+          height: '500px',
+          background: 'radial-gradient(circle, rgba(91,30,214,0.06) 0%, transparent 70%)',
+          borderRadius: '50%',
+          filter: 'blur(80px)'
+        }} />
+        <div style={{
+          position: 'absolute',
+          bottom: '10%',
+          left: '30%',
+          width: '400px',
+          height: '400px',
+          background: 'radial-gradient(circle, rgba(138,43,226,0.05) 0%, transparent 70%)',
+          borderRadius: '50%',
+          filter: 'blur(80px)'
+        }} />
+      </div>
+
+      {/* Navbar */}
+      <nav
+        ref={navbarRef}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 1000,
+          padding: scrolled ? '12px 24px' : '16px 24px',
+          background: scrolled ? 'rgba(10,10,15,0.85)' : 'transparent',
+          backdropFilter: scrolled ? 'blur(20px)' : 'none',
+          borderBottom: scrolled ? '1px solid rgba(138,43,226,0.1)' : '1px solid transparent',
+          transition: 'all 0.3s ease'
+        }}
+      >
+        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {/* Logo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => scrollToSection('hero')}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, #8A2BE2, #5B1ED6)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 15px rgba(138,43,226,0.3)'
+            }}>
+              <Store size={20} color="white" />
+            </div>
+            <span style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '-0.5px' }}>
+              {config.store_name}
+            </span>
+          </div>
+
+          {/* Desktop Links */}
+          <div className="nav-desktop" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {navLinks.map((link) => (
+              <button
+                key={link.id}
+                onClick={() => scrollToSection(link.id)}
+                style={{
+                  padding: '8px 16px',
+                  background: 'transparent',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: '#aaa',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.color = '#fff';
+                  e.currentTarget.style.background = 'rgba(138,43,226,0.1)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.color = '#aaa';
+                  e.currentTarget.style.background = 'transparent';
+                }}
+              >
+                <link.icon size={16} />
+                {link.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Right Side */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              onClick={() => setShowCart(true)}
+              style={{
+                position: 'relative',
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '10px',
+                padding: '10px',
+                cursor: 'pointer',
+                color: 'white',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = 'rgba(138,43,226,0.15)';
+                e.currentTarget.style.borderColor = 'rgba(138,43,226,0.3)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+              }}
+            >
+              <ShoppingCart size={20} />
+              {getCartItemCount() > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '-6px',
+                  right: '-6px',
+                  background: 'linear-gradient(135deg, #8A2BE2, #5B1ED6)',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: '20px',
+                  height: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  boxShadow: '0 2px 8px rgba(138,43,226,0.4)'
+                }}>
+                  {getCartItemCount()}
+                </span>
+              )}
+            </button>
+
+            {/* Mobile Menu Button */}
+            <button
+              className="nav-mobile-btn"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              style={{
+                display: 'none',
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '10px',
+                padding: '10px',
+                cursor: 'pointer',
+                color: 'white'
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                {mobileMenuOpen ? (
+                  <path d="M18 6L6 18M6 6l12 12" />
+                ) : (
+                  <path d="M3 12h18M3 6h18M3 18h18" />
+                )}
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="nav-mobile-menu" style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            background: 'rgba(10,10,15,0.95)',
+            backdropFilter: 'blur(20px)',
+            borderBottom: '1px solid rgba(138,43,226,0.1)',
+            padding: '16px 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
+          }}>
+            {navLinks.map((link) => (
+              <button
+                key={link.id}
+                onClick={() => scrollToSection(link.id)}
+                style={{
+                  padding: '12px 16px',
+                  background: 'transparent',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: '#aaa',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  textAlign: 'left',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <link.icon size={18} />
+                {link.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </nav>
+
       {/* Hero Section */}
-      <section style={{
+      <section id="hero" style={{
         position: 'relative',
         overflow: 'hidden',
-        background: 'linear-gradient(135deg, #0a0a0f 0%, #1a1025 50%, #0a0a0f 100%)',
-        padding: '0 24px'
+        padding: '120px 24px 80px',
+        background: 'linear-gradient(180deg, rgba(26,16,37,0.5) 0%, rgba(10,10,15,0) 100%)'
       }}>
         {/* Decorative elements */}
         <div style={{
           position: 'absolute',
-          top: '-50%',
-          left: '-10%',
-          width: '400px',
-          height: '400px',
-          background: 'radial-gradient(circle, rgba(138,43,226,0.15) 0%, transparent 70%)',
+          top: '-20%',
+          left: '-5%',
+          width: '500px',
+          height: '500px',
+          background: 'radial-gradient(circle, rgba(138,43,226,0.12) 0%, transparent 70%)',
           borderRadius: '50%',
           pointerEvents: 'none'
         }} />
@@ -303,85 +565,17 @@ export default function Storefront() {
           position: 'absolute',
           bottom: '-30%',
           right: '-5%',
-          width: '300px',
-          height: '300px',
-          background: 'radial-gradient(circle, rgba(91,30,214,0.1) 0%, transparent 70%)',
+          width: '400px',
+          height: '400px',
+          background: 'radial-gradient(circle, rgba(91,30,214,0.08) 0%, transparent 70%)',
           borderRadius: '50%',
           pointerEvents: 'none'
         }} />
-
-        {/* Top Navigation Bar */}
-        <nav style={{
-          maxWidth: '1200px',
-          margin: '0 auto',
-          padding: '20px 0',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          position: 'relative',
-          zIndex: 10
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, #8A2BE2, #5B1ED6)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 4px 15px rgba(138,43,226,0.3)'
-            }}>
-              <Store size={22} color="white" />
-            </div>
-            <span style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '-0.5px' }}>
-              {config.store_name}
-            </span>
-          </div>
-
-          <button
-            onClick={() => setShowCart(true)}
-            style={{
-              position: 'relative',
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '12px',
-              padding: '12px',
-              cursor: 'pointer',
-              color: 'white',
-              transition: 'all 0.2s',
-              backdropFilter: 'blur(10px)'
-            }}
-          >
-            <ShoppingCart size={22} />
-            {getCartItemCount() > 0 && (
-              <span style={{
-                position: 'absolute',
-                top: '-6px',
-                right: '-6px',
-                background: 'linear-gradient(135deg, #8A2BE2, #5B1ED6)',
-                color: 'white',
-                borderRadius: '50%',
-                width: '22px',
-                height: '22px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '11px',
-                fontWeight: 700,
-                boxShadow: '0 2px 8px rgba(138,43,226,0.4)'
-              }}>
-                {getCartItemCount()}
-              </span>
-            )}
-          </button>
-        </nav>
 
         {/* Hero Content */}
         <div className="hero-content" style={{
           maxWidth: '1200px',
           margin: '0 auto',
-          padding: '60px 0 80px',
           display: 'flex',
           alignItems: 'center',
           gap: '60px',
@@ -436,7 +630,7 @@ export default function Storefront() {
 
             <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
               <button
-                onClick={scrollToProducts}
+                onClick={() => scrollToSection('products-section')}
                 style={{
                   padding: '16px 32px',
                   background: 'linear-gradient(135deg, #8A2BE2, #5B1ED6)',
@@ -450,7 +644,15 @@ export default function Storefront() {
                   alignItems: 'center',
                   gap: '10px',
                   boxShadow: '0 4px 20px rgba(138,43,226,0.4)',
-                  transition: 'all 0.2s'
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 6px 30px rgba(138,43,226,0.5)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 20px rgba(138,43,226,0.4)';
                 }}
               >
                 <Package size={20} />
@@ -472,7 +674,15 @@ export default function Storefront() {
                   alignItems: 'center',
                   gap: '10px',
                   backdropFilter: 'blur(10px)',
-                  transition: 'all 0.2s'
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = 'rgba(138,43,226,0.15)';
+                  e.currentTarget.style.borderColor = 'rgba(138,43,226,0.3)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
                 }}
               >
                 <ShoppingCart size={20} />
@@ -509,11 +719,7 @@ export default function Storefront() {
               <img
                 src={config.banner_url}
                 alt={config.store_name}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover'
-                }}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             ) : (
               <div style={{ textAlign: 'center', padding: '40px' }}>
@@ -534,21 +740,71 @@ export default function Storefront() {
             )}
           </div>
         </div>
-
-        {/* Bottom gradient fade */}
-        <div style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: '80px',
-          background: 'linear-gradient(to top, #0a0a0f, transparent)',
-          pointerEvents: 'none'
-        }} />
       </section>
 
+      {/* Section Divider */}
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px' }}>
+        <div style={{ height: '1px', background: 'linear-gradient(90deg, transparent, rgba(138,43,226,0.2), transparent)' }} />
+      </div>
+
+      {/* Benefits Section */}
+      <section style={{ maxWidth: '1200px', margin: '0 auto', padding: '60px 24px' }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: '16px'
+        }}>
+          {[
+            { icon: Truck, title: 'Envio para todo Brasil', desc: 'Entregamos em todo o território nacional' },
+            { icon: Zap, title: 'Produção rápida', desc: 'Processo ágil do pedido à entrega' },
+            { icon: Shield, title: 'Qualidade garantida', desc: 'Materiais de alta qualidade e precisão' },
+            { icon: RefreshCw, title: 'Produtos sob demanda', desc: 'Personalizações e projetos exclusivos' }
+          ].map((benefit, index) => (
+            <div
+              key={index}
+              className="benefit-card"
+              style={{
+                padding: '24px 20px',
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '16px',
+                textAlign: 'center',
+                backdropFilter: 'blur(10px)',
+                transition: 'all 0.3s ease',
+                cursor: 'default'
+              }}
+            >
+              <div style={{
+                width: '48px',
+                height: '48px',
+                margin: '0 auto 16px',
+                background: 'linear-gradient(135deg, rgba(138,43,226,0.2), rgba(91,30,214,0.1))',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.3s ease'
+              }}>
+                <benefit.icon size={22} color="#8A2BE2" />
+              </div>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 6px', color: '#fff' }}>
+                {benefit.title}
+              </h3>
+              <p style={{ fontSize: '12px', color: '#666', margin: 0, lineHeight: 1.5 }}>
+                {benefit.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Section Divider */}
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px' }}>
+        <div style={{ height: '1px', background: 'linear-gradient(90deg, transparent, rgba(138,43,226,0.2), transparent)' }} />
+      </div>
+
       {/* Products Section */}
-      <section id="products-section" style={{ maxWidth: '1200px', margin: '0 auto', padding: '60px 24px 32px', scrollMarginTop: '20px' }}>
+      <section id="products-section" style={{ maxWidth: '1200px', margin: '0 auto', padding: '60px 24px', scrollMarginTop: '80px' }}>
         {/* Section Header */}
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
           <div style={{
@@ -595,12 +851,13 @@ export default function Storefront() {
             {products.map(product => (
               <div
                 key={product.id}
+                className="product-card"
                 style={{
                   background: 'rgba(255,255,255,0.03)',
                   border: '1px solid rgba(255,255,255,0.08)',
                   borderRadius: '16px',
                   overflow: 'hidden',
-                  transition: 'transform 0.2s, border-color 0.2s'
+                  transition: 'all 0.3s ease'
                 }}
               >
                 {product.image_url ? (
@@ -637,6 +894,7 @@ export default function Storefront() {
 
                     <button
                       onClick={() => addToCart(product)}
+                      className="add-to-cart-btn"
                       style={{
                         background: 'linear-gradient(135deg, #8A2BE2, #5B1ED6)',
                         border: 'none',
@@ -648,7 +906,8 @@ export default function Storefront() {
                         alignItems: 'center',
                         gap: '6px',
                         fontSize: '13px',
-                        fontWeight: 600
+                        fontWeight: 600,
+                        transition: 'all 0.2s ease'
                       }}
                     >
                       <Plus size={16} /> Adicionar
@@ -660,6 +919,182 @@ export default function Storefront() {
           </div>
         )}
       </section>
+
+      {/* Section Divider */}
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px' }}>
+        <div style={{ height: '1px', background: 'linear-gradient(90deg, transparent, rgba(138,43,226,0.2), transparent)' }} />
+      </div>
+
+      {/* About Section */}
+      {config.about_text && (
+        <section id="about-section" style={{ maxWidth: '1200px', margin: '0 auto', padding: '80px 24px', scrollMarginTop: '80px' }}>
+          <div style={{ textAlign: 'center', maxWidth: '800px', margin: '0 auto' }}>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '6px 14px',
+              background: 'rgba(138,43,226,0.1)',
+              border: '1px solid rgba(138,43,226,0.15)',
+              borderRadius: '100px',
+              marginBottom: '16px',
+              fontSize: '12px',
+              color: '#8A2BE2',
+              fontWeight: 500
+            }}>
+              <Info size={14} />
+              Sobre a Loja
+            </div>
+            <h2 style={{
+              fontSize: 'clamp(24px, 3vw, 32px)',
+              fontWeight: 700,
+              margin: '0 0 24px',
+              letterSpacing: '-0.5px'
+            }}>
+              Sobre Nós
+            </h2>
+            <div style={{
+              fontSize: '16px',
+              color: '#888',
+              lineHeight: 1.8,
+              whiteSpace: 'pre-wrap',
+              wordWrap: 'break-word'
+            }}>
+              {config.about_text}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Section Divider */}
+      {config.about_text && (
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px' }}>
+          <div style={{ height: '1px', background: 'linear-gradient(90deg, transparent, rgba(138,43,226,0.2), transparent)' }} />
+        </div>
+      )}
+
+      {/* Footer */}
+      <footer id="footer-section" style={{
+        background: 'rgba(0,0,0,0.3)',
+        borderTop: '1px solid rgba(138,43,226,0.1)',
+        padding: '60px 24px 24px',
+        marginTop: '40px'
+      }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '40px', marginBottom: '40px' }}>
+            {/* Brand */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #8A2BE2, #5B1ED6)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Store size={20} color="white" />
+                </div>
+                <span style={{ fontSize: '18px', fontWeight: 700 }}>{config.store_name}</span>
+              </div>
+              <p style={{ fontSize: '14px', color: '#666', lineHeight: 1.6, margin: 0 }}>
+                {config.store_description || 'Peças personalizadas produzidas com qualidade e atenção aos detalhes.'}
+              </p>
+            </div>
+
+            {/* Quick Links */}
+            <div>
+              <h4 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 16px', color: '#fff' }}>Links Rápidos</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {navLinks.map((link) => (
+                  <button
+                    key={link.id}
+                    onClick={() => scrollToSection(link.id)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#666',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      textAlign: 'left',
+                      padding: 0,
+                      transition: 'color 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#8A2BE2'}
+                    onMouseLeave={e => e.currentTarget.style.color = '#666'}
+                  >
+                    <link.icon size={14} />
+                    {link.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Contact & Social */}
+            <div>
+              <h4 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 16px', color: '#fff' }}>Contato</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {config.whatsapp_number && (
+                  <a
+                    href={`https://wa.me/${config.whatsapp_number.replace(/\D/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: '#666', fontSize: '14px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', transition: 'color 0.2s' }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#25D366'}
+                    onMouseLeave={e => e.currentTarget.style.color = '#666'}
+                  >
+                    <Send size={14} />
+                    WhatsApp
+                  </a>
+                )}
+                {config.social_links && Object.entries(config.social_links).map(([network, data]) => {
+                  if (!data.enabled || !data.url) return null;
+                  const socialConfig = socialIcons[network];
+                  if (!socialConfig) return null;
+                  const Icon = socialConfig.icon;
+                  const href = network === 'email' ? `mailto:${data.url}` : (data.url.startsWith('http') ? data.url : `https://${data.url}`);
+                  return (
+                    <a
+                      key={network}
+                      href={href}
+                      target={network === 'email' ? undefined : '_blank'}
+                      rel={network === 'email' ? undefined : 'noopener noreferrer'}
+                      style={{ color: '#666', fontSize: '14px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', transition: 'color 0.2s' }}
+                      onMouseEnter={e => e.currentTarget.style.color = socialConfig.color}
+                      onMouseLeave={e => e.currentTarget.style.color = '#666'}
+                    >
+                      <Icon size={14} />
+                      {socialConfig.label}
+                    </a>
+                  );
+                })}
+                {(!config.whatsapp_number || !(config.social_links && Object.values(config.social_links).some(d => d.enabled && d.url))) && (
+                  <p style={{ color: '#444', fontSize: '13px', margin: 0 }}>Nenhuma informação de contato cadastrada.</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Bar */}
+          <div style={{
+            borderTop: '1px solid rgba(255,255,255,0.05)',
+            paddingTop: '24px',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '8px'
+          }}>
+            <p style={{ fontSize: '13px', color: '#444', margin: 0 }}>
+              © {new Date().getFullYear()} - {config.store_name}. Todos os direitos reservados.
+            </p>
+          </div>
+        </div>
+      </footer>
 
       {/* Cart Sidebar */}
       {showCart && (
@@ -921,6 +1356,22 @@ export default function Storefront() {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
+        .product-card:hover {
+          transform: translateY(-4px);
+          border-color: rgba(138,43,226,0.3) !important;
+          box-shadow: 0 8px 32px rgba(138,43,226,0.15);
+        }
+        .product-card:hover .add-to-cart-btn {
+          transform: scale(1.05);
+        }
+        .benefit-card:hover {
+          background: rgba(138,43,226,0.08) !important;
+          border-color: rgba(138,43,226,0.2) !important;
+          transform: translateY(-2px);
+        }
+        .benefit-card:hover > div:first-child {
+          background: linear-gradient(135deg, rgba(138,43,226,0.35), rgba(91,30,214,0.25)) !important;
+        }
         @media (max-width: 900px) {
           .hero-content {
             flex-direction: column !important;
@@ -935,6 +1386,20 @@ export default function Storefront() {
             max-width: 320px !important;
             height: 240px !important;
             margin: 0 auto;
+          }
+          .nav-desktop {
+            display: none !important;
+          }
+          .nav-mobile-btn {
+            display: flex !important;
+          }
+        }
+        @media (min-width: 901px) {
+          .nav-mobile-btn {
+            display: none !important;
+          }
+          .nav-mobile-menu {
+            display: none !important;
           }
         }
       `}</style>

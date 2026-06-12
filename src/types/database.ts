@@ -152,6 +152,11 @@ export interface StoreProduct {
   created_at: string;
 }
 
+export interface SocialLink {
+  url: string;
+  enabled: boolean;
+}
+
 export interface StoreConfig {
   id: string;
   user_id: string;
@@ -159,6 +164,8 @@ export interface StoreConfig {
   store_description: string | null;
   whatsapp_number: string | null;
   banner_url: string | null;
+  about_text: string | null;
+  social_links: Record<string, SocialLink> | null;
   is_active: boolean;
   updated_at: string;
 }
