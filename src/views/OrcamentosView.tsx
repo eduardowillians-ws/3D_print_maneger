@@ -19,7 +19,8 @@ import {
   Package,
   AlertCircle,
   History as HistoryIcon,
-  Archive
+  Archive,
+  XCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../contexts/SettingsContext';
@@ -337,6 +338,16 @@ export default function OrcamentosView() {
     }
   };
 
+  const handleReject = async (id: string) => {
+    const { error } = await quotesApi.updateStatus(id, 'REJEITADO');
+    if (error) {
+      alert('Erro ao rejeitar orçamento: ' + error.message);
+      return;
+    }
+    setOrcamentos(prev => prev.map(item => item.id === id ? { ...item, status: 'REJEITADO' } : item));
+    setActiveMenu(null);
+  };
+
   const handleShowPreview = async (item: any) => {
     const itemsWithNames = (item.items || []).map((qi: any) => {
       let productName = qi.description || 'Serviço de Manufatura 3D';
@@ -436,6 +447,7 @@ export default function OrcamentosView() {
                             <div style={dropdownItemStyle} onClick={() => handleEdit(item)}><Edit2 size={14} /> Editar</div>
                             <div style={dropdownItemStyle} onClick={() => handleShowPreview(item)}><FileText size={14} /> Pré-visualizar PDF</div>
                             <div style={dropdownItemStyle} onClick={() => handleApprove(item.id)}><CheckCircle size={14} /> Aprovar</div>
+                            <div style={{ ...dropdownItemStyle, color: 'var(--error)' }} onClick={() => handleReject(item.id)}><XCircle size={14} /> Rejeitar</div>
                             <div style={dropdownItemStyle} onClick={() => handleArchive(item.id)}><Archive size={14} /> Arquivar</div>
                             <div style={{ ...dropdownItemStyle, color: 'var(--error)' }} onClick={() => handleDelete(item.id)}><Trash2 size={14} /> Excluir</div>
                           </motion.div>

@@ -6,19 +6,34 @@ const createError = (message: string, details?: string): ApiError => ({
   details
 });
 
+let cachedUserId: string | null = null;
+
+export async function getUserId(): Promise<string | null> {
+  if (cachedUserId) return cachedUserId;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    cachedUserId = user.id;
+  }
+  return user?.id ?? null;
+}
+
+export function clearUserCache() {
+  cachedUserId = null;
+}
+
 export const baseQueries = {
   async getAll<T>(table: DbTable): Promise<ApiResponse<T>> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const userId = await getUserId();
       
-      if (!user) {
+      if (!userId) {
         return { data: [], error: null };
       }
 
       const { data, error } = await supabase
         .from(table)
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -34,9 +49,9 @@ export const baseQueries = {
 
   async getById<T>(table: DbTable, id: string): Promise<ApiResponseSingle<T>> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const userId = await getUserId();
       
-      if (!user) {
+      if (!userId) {
         return { data: null, error: createError('Usuário não autenticado') };
       }
 
@@ -44,7 +59,7 @@ export const baseQueries = {
         .from(table)
         .select('*')
         .eq('id', id)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .single();
 
       if (error) {
@@ -60,13 +75,13 @@ export const baseQueries = {
 
   async create<T>(table: DbTable, payload: Record<string, unknown>): Promise<ApiResponseSingle<T>> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const userId = await getUserId();
       
-      if (!user) {
+      if (!userId) {
         return { data: null, error: createError('Usuário não autenticado') };
       }
 
-      const payloadWithUser = { ...payload, user_id: user.id };
+      const payloadWithUser = { ...payload, user_id: userId };
 
       const { data, error } = await supabase
         .from(table)
@@ -87,9 +102,9 @@ export const baseQueries = {
 
   async update<T>(table: DbTable, id: string, payload: Record<string, unknown>): Promise<ApiResponseSingle<T>> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const userId = await getUserId();
       
-      if (!user) {
+      if (!userId) {
         return { data: null, error: createError('Usuário não autenticado') };
       }
 
@@ -97,7 +112,7 @@ export const baseQueries = {
         .from(table)
         .update(payload as never)
         .eq('id', id)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .select()
         .single();
 
@@ -114,9 +129,9 @@ export const baseQueries = {
 
   async delete(table: DbTable, id: string): Promise<{ success: boolean; error: ApiError | null }> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const userId = await getUserId();
       
-      if (!user) {
+      if (!userId) {
         return { success: false, error: createError('Usuário não autenticado') };
       }
 
@@ -124,7 +139,7 @@ export const baseQueries = {
         .from(table)
         .delete()
         .eq('id', id)
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
       if (error) {
         return { success: false, error: createError(error.message, error.details) };
@@ -139,16 +154,16 @@ export const baseQueries = {
 
   async count(table: DbTable): Promise<{ count: number; error: ApiError | null }> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const userId = await getUserId();
       
-      if (!user) {
+      if (!userId) {
         return { count: 0, error: null };
       }
 
       const { count, error } = await supabase
         .from(table)
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
       if (error) {
         return { count: 0, error: createError(error.message, error.details) };

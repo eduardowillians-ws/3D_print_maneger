@@ -1,4 +1,4 @@
-import { baseQueries } from './baseQueries';
+import { baseQueries, getUserId } from './baseQueries';
 import { Product, ProductMaterial, ApiResponse, ApiResponseSingle } from '../../types/database';
 import { supabase } from '../../lib/supabase';
 
@@ -24,9 +24,9 @@ export const productsApi = {
   },
 
   async search(term: string): Promise<ApiResponse<Product>> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const userId = await getUserId();
     
-    if (!user) {
+    if (!userId) {
       return { data: [], error: { message: 'Usuário não autenticado' } };
     }
     
@@ -39,7 +39,7 @@ export const productsApi = {
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .or(`name.ilike.%${lowerTerm}%,version.ilike.%${lowerTerm}%`)
       .order('created_at', { ascending: false });
     
@@ -66,8 +66,7 @@ export const productsApi = {
 
   // Materials por produto - com dados do material via relação
   async getMaterialsByProduct(productId: string): Promise<ApiResponse<ProductMaterial>> {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
+    const userId = await getUserId();
 
     let query = supabase
       .from('product_materials')
@@ -111,8 +110,7 @@ export const productsApi = {
 
   async addMaterial(material: Partial<ProductMaterial>): Promise<ApiResponseSingle<ProductMaterial>> {
     // Incluir user_id na inserção
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
+    const userId = await getUserId();
     
     const materialWithUser = {
       ...material,
@@ -128,8 +126,7 @@ export const productsApi = {
   },
 
   async updateMaterial(id: string, material: Partial<ProductMaterial>): Promise<ApiResponseSingle<ProductMaterial>> {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
+    const userId = await getUserId();
     
     if (!userId) {
       return { data: null, error: { message: 'Usuário não autenticado' } };
@@ -146,8 +143,7 @@ export const productsApi = {
   },
 
   async deleteMaterial(id: string) {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
+    const userId = await getUserId();
     
     if (!userId) {
       return { error: { message: 'Usuário não autenticado' } };

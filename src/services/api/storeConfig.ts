@@ -1,16 +1,17 @@
 import { supabase } from '../../lib/supabase';
 import { StoreConfig, ApiResponseSingle } from '../../types/database';
+import { getUserId } from './baseQueries';
 
 export const storeConfigApi = {
   async get(): Promise<ApiResponseSingle<StoreConfig>> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return { data: null, error: { message: 'Usuário não autenticado' } };
+      const userId = await getUserId();
+      if (!userId) return { data: null, error: { message: 'Usuário não autenticado' } };
 
       const { data, error } = await supabase
         .from('store_config')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .single();
 
       if (error && error.code !== 'PGRST116') {
@@ -20,7 +21,7 @@ export const storeConfigApi = {
       if (!data) {
         const { data: newData, error: createError } = await supabase
           .from('store_config')
-          .insert({ user_id: user.id } as never)
+          .insert({ user_id: userId } as never)
           .select()
           .single();
 
@@ -54,12 +55,12 @@ export const storeConfigApi = {
 
   async update(config: Partial<StoreConfig>): Promise<ApiResponseSingle<StoreConfig>> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return { data: null, error: { message: 'Usuário não autenticado' } };
+      const userId = await getUserId();
+      if (!userId) return { data: null, error: { message: 'Usuário não autenticado' } };
 
       const { data, error } = await supabase
         .from('store_config')
-        .upsert({ ...config, user_id: user.id, updated_at: new Date().toISOString() } as never, { onConflict: 'user_id' })
+        .upsert({ ...config, user_id: userId, updated_at: new Date().toISOString() } as never, { onConflict: 'user_id' })
         .select()
         .single();
 

@@ -1,4 +1,4 @@
-import { baseQueries } from './baseQueries';
+import { baseQueries, getUserId } from './baseQueries';
 import { Transaction, TransactionType, TransactionStatus, ApiResponse, ApiResponseSingle } from '../../types/database';
 import { supabase } from '../../lib/supabase';
 import { generateTransactionCode } from '../../utils/referenceCodes';
@@ -31,16 +31,16 @@ export const transactionsApi = {
   },
 
   async getByType(type: TransactionType): Promise<ApiResponse<Transaction>> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const userId = await getUserId();
     
-    if (!user) {
+    if (!userId) {
       return { data: [], error: { message: 'Usuário não autenticado' } };
     }
     
     const { data, error } = await supabase
       .from('transactions')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('type', type)
       .order('date', { ascending: false });
     
@@ -52,16 +52,16 @@ export const transactionsApi = {
   },
 
   async getByDateRange(startDate: string, endDate: string): Promise<ApiResponse<Transaction>> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const userId = await getUserId();
     
-    if (!user) {
+    if (!userId) {
       return { data: [], error: { message: 'Usuário não autenticado' } };
     }
     
     const { data, error } = await supabase
       .from('transactions')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .gte('date', startDate)
       .lte('date', endDate)
       .order('date', { ascending: false });

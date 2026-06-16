@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { clearUserCache } from '../services/api/baseQueries';
 import { 
   LayoutDashboard, 
   Printer, 
@@ -51,6 +52,7 @@ export default function Dashboard() {
     try {
       if (confirm('Deseja realmente encerrar sua sessão?')) {
         await supabase.auth.signOut();
+        clearUserCache();
         // Redireciona forçado caso o listener demore
         window.location.reload();
       }

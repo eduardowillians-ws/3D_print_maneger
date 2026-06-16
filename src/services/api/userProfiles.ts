@@ -1,9 +1,9 @@
 import { supabase } from '../../lib/supabase';
+import { getUserId } from './baseQueries';
 
 export const userProfilesApi = {
   async getProfile(): Promise<{ photo_url: string | null } | null> {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
+    const userId = await getUserId();
     
     if (!userId) return null;
     
@@ -22,8 +22,7 @@ export const userProfilesApi = {
   },
 
   async savePhoto(base64Data: string): Promise<boolean> {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
+    const userId = await getUserId();
     
     if (!userId) return false;
     
@@ -44,8 +43,7 @@ export const userProfilesApi = {
   },
 
   async deletePhoto(): Promise<boolean> {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
+    const userId = await getUserId();
     
     if (!userId) return false;
     

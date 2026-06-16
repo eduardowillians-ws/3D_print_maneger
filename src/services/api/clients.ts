@@ -1,4 +1,4 @@
-import { baseQueries } from './baseQueries';
+import { baseQueries, getUserId } from './baseQueries';
 import { Client, ApiResponse, ApiResponseSingle } from '../../types/database';
 import { supabase } from '../../lib/supabase';
 
@@ -24,9 +24,9 @@ export const clientsApi = {
   },
 
   async search(term: string): Promise<ApiResponse<Client>> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const userId = await getUserId();
     
-    if (!user) {
+    if (!userId) {
       return { data: [], error: { message: 'Usuário não autenticado' } };
     }
     
@@ -39,7 +39,7 @@ export const clientsApi = {
     const { data, error } = await supabase
       .from('clients')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .or(`name.ilike.%${lowerTerm}%,email.ilike.%${lowerTerm}%,phone.ilike.%${term}%`)
       .order('created_at', { ascending: false });
     

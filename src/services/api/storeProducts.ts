@@ -1,16 +1,17 @@
 import { supabase } from '../../lib/supabase';
 import { StoreProduct, ApiResponse, ApiResponseSingle } from '../../types/database';
+import { getUserId } from './baseQueries';
 
 export const storeProductsApi = {
   async getAll(): Promise<ApiResponse<StoreProduct>> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return { data: [], error: null };
+      const userId = await getUserId();
+      if (!userId) return { data: [], error: null };
 
       const { data, error } = await supabase
         .from('store_products')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('sort_order', { ascending: true });
 
       if (error) return { data: null, error: { message: error.message, details: error.details } };
@@ -55,12 +56,12 @@ export const storeProductsApi = {
 
   async create(product: Partial<StoreProduct>): Promise<ApiResponseSingle<StoreProduct>> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return { data: null, error: { message: 'Usuário não autenticado' } };
+      const userId = await getUserId();
+      if (!userId) return { data: null, error: { message: 'Usuário não autenticado' } };
 
       const { data, error } = await supabase
         .from('store_products')
-        .insert({ ...product, user_id: user.id } as never)
+        .insert({ ...product, user_id: userId } as never)
         .select()
         .single();
 

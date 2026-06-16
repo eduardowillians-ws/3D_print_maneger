@@ -1,4 +1,4 @@
-import { baseQueries } from './baseQueries';
+import { baseQueries, getUserId } from './baseQueries';
 import { ProductionJob, ProductionJobMaterial, ProductionStatus, ApiResponse, ApiResponseSingle } from '../../types/database';
 import { supabase } from '../../lib/supabase';
 import { generateProductionCode } from '../../utils/referenceCodes';
@@ -101,8 +101,7 @@ export const productionApi = {
   },
 
   async getMaterialsByJob(jobId: string): Promise<ApiResponse<ProductionJobMaterial>> {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
+    const userId = await getUserId();
     
     if (!userId) {
       return { data: null, error: { message: 'Usuário não autenticado' } };
@@ -118,8 +117,7 @@ export const productionApi = {
   },
 
   async addMaterial(jobId: string, material: Partial<ProductionJobMaterial>): Promise<ApiResponseSingle<ProductionJobMaterial>> {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
+    const userId = await getUserId();
     
     if (!userId) {
       return { data: null, error: { message: 'Usuário não autenticado' } };
@@ -140,8 +138,7 @@ export const productionApi = {
   },
 
   async updateMaterial(id: string, material: Partial<ProductionJobMaterial>): Promise<ApiResponseSingle<ProductionJobMaterial>> {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
+    const userId = await getUserId();
     
     if (!userId) {
       return { data: null, error: { message: 'Usuário não autenticado' } };
@@ -158,8 +155,7 @@ export const productionApi = {
   },
 
   async deleteMaterial(id: string) {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
+    const userId = await getUserId();
     
     if (!userId) {
       return { error: { message: 'Usuário não autenticado' } };
@@ -173,8 +169,7 @@ export const productionApi = {
   },
 
   async consumeMaterials(jobId: string): Promise<{ success: boolean; error?: string }> {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
+    const userId = await getUserId();
     
     if (!userId) {
       return { success: false, error: 'Usuário não autenticado' };
@@ -215,8 +210,7 @@ export const productionApi = {
   },
 
   async getAggregatedMaterials(monthIndex?: number, year?: string): Promise<{ material_name: string; total_weight: number; count: number }[]> {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
+    const userId = await getUserId();
 
     let query = supabase
       .from('production_job_materials')
@@ -259,8 +253,7 @@ export const productionApi = {
   },
 
   async getTopClients(monthIndex?: number, year?: string, limit: number = 5): Promise<{ name: string; totalValue: number; count: number }[]> {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
+    const userId = await getUserId();
 
     let query = supabase
       .from('quotes')
@@ -304,8 +297,7 @@ export const productionApi = {
   },
 
   async getTopProducts(monthIndex?: number, year?: string, limit: number = 5): Promise<{ name: string; totalQuantity: number }[]> {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
+    const userId = await getUserId();
 
     let query = supabase
       .from('production_jobs')
@@ -347,8 +339,7 @@ export const productionApi = {
   },
 
   async getJobsWithEstimatedTime(monthIndex?: number, year?: string): Promise<{ quantity: number; estimatedHours: number }[]> {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
+    const userId = await getUserId();
 
     let jobsQuery = supabase
       .from('production_jobs')

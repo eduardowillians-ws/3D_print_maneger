@@ -1,4 +1,4 @@
-import { baseQueries } from './baseQueries';
+import { baseQueries, getUserId } from './baseQueries';
 import { Printer, PrinterStatus, ApiResponse, ApiResponseSingle } from '../../types/database';
 import { supabase } from '../../lib/supabase';
 
@@ -32,16 +32,16 @@ export const printersApi = {
   },
 
   async getByStatus(status: PrinterStatus): Promise<ApiResponse<Printer>> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const userId = await getUserId();
     
-    if (!user) {
+    if (!userId) {
       return { data: [], error: { message: 'Usuário não autenticado' } };
     }
     
     const { data, error } = await supabase
       .from('printers')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('status', status)
       .order('created_at', { ascending: false });
     

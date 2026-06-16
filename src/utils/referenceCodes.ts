@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { getUserId } from '../services/api/baseQueries';
 
 type CodePrefix = 'ORC' | 'PRO' | 'FIN';
 
@@ -12,8 +13,7 @@ export async function generateReferenceCode(
   table: 'quotes' | 'production_jobs' | 'transactions',
   prefix: CodePrefix
 ): Promise<string> {
-  const { data: userData } = await supabase.auth.getUser();
-  const userId = userData?.user?.id;
+  const userId = await getUserId();
 
   if (!userId) {
     throw new Error('Usuário não autenticado');
