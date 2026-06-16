@@ -217,8 +217,8 @@ export const productionApi = {
       .select('material_name, weight_g, jobs:job_id(created_at, user_id)');
 
     if (year) {
-      const startDate = `${year}-01-01`;
-      const endDate = `${year}-12-31`;
+      const startDate = `${year}-01-01T00:00:00`;
+      const endDate = `${year}-12-31T23:59:59`;
       query = query.gte('jobs.created_at', startDate).lte('jobs.created_at', endDate);
     }
 
@@ -261,8 +261,8 @@ export const productionApi = {
       .in('status', ['APROVADO', 'PAGO']);
 
     if (year) {
-      const startDate = `${year}-01-01`;
-      const endDate = `${year}-12-31`;
+      const startDate = `${year}-01-01T00:00:00`;
+      const endDate = `${year}-12-31T23:59:59`;
       query = query.gte('created_at', startDate).lte('created_at', endDate);
     }
 
@@ -304,8 +304,8 @@ export const productionApi = {
       .select('product_name, quantity, created_at, user_id');
 
     if (year) {
-      const startDate = `${year}-01-01`;
-      const endDate = `${year}-12-31`;
+      const startDate = `${year}-01-01T00:00:00`;
+      const endDate = `${year}-12-31T23:59:59`;
       query = query.gte('created_at', startDate).lte('created_at', endDate);
     }
 
@@ -346,8 +346,8 @@ export const productionApi = {
       .select('quantity, created_at, user_id');
 
     if (year) {
-      const startDate = `${year}-01-01`;
-      const endDate = `${year}-12-31`;
+      const startDate = `${year}-01-01T00:00:00`;
+      const endDate = `${year}-12-31T23:59:59`;
       jobsQuery = jobsQuery.gte('created_at', startDate).lte('created_at', endDate);
     }
 

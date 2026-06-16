@@ -93,11 +93,9 @@ export default function ReportsView() {
       const monthIndexForAPI = selectedMonth === 'Todos' ? -1 : monthListForAPI.indexOf(selectedMonth) - 1;
       const matMonthIndex = materialMonth === 'Todos' ? undefined : monthListForAPI.indexOf(materialMonth) - 1;
 
-      const [dashboardStats, materialsData, topClientsData, topProductsData, jobsWithTime, allQuotesRes, allTransactionsRes, allProductionRes, allClientsRes, allProductsRes] = await Promise.all([
+      const [dashboardStats, materialsData, jobsWithTime, allQuotesRes, allTransactionsRes, allProductionRes, allClientsRes, allProductsRes] = await Promise.all([
         dashboardApi.getStats(selectedMonth, selectedYear),
         productionApi.getAggregatedMaterials(matMonthIndex, materialYear),
-        productionApi.getTopClients(monthIndexForAPI, selectedYear, 5),
-        productionApi.getTopProducts(monthIndexForAPI, selectedYear, 5),
         productionApi.getJobsWithEstimatedTime(monthIndexForAPI, selectedYear),
         quotesApi.getAll(),
         transactionsApi.getAll(),
@@ -158,13 +156,12 @@ export default function ReportsView() {
         .filter((q: any) => q.status === 'APROVADO')
         .map((q: any) => q.id);
 
-      let allQuoteItems: any[] = [];
-      for (const qId of approvedQuoteIds) {
-        const itemsRes = await quoteItemsApi.getByQuoteId(qId);
-        if (itemsRes.data) {
-          allQuoteItems = allQuoteItems.concat(itemsRes.data);
-        }
-      }
+      const allQuoteItemsResults = await Promise.all(
+        approvedQuoteIds.map(qId => quoteItemsApi.getByQuoteId(qId))
+      );
+      const allQuoteItems = allQuoteItemsResults
+        .filter((res): res is { data: any[]; error: null } => res.data !== null)
+        .flatMap(res => res.data);
 
       const revenueByClientMap: Record<string, { name: string; total: number; count: number }> = {};
       periodQuotes
@@ -269,8 +266,6 @@ export default function ReportsView() {
         ltvByClient,
         monthlyData,
         materialMix,
-        topClients: topClientsData,
-        topProducts: topProductsData,
         allQuotes,
         allTransactions,
         allProduction,

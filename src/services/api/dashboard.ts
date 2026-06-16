@@ -16,7 +16,8 @@ export const dashboardApi = {
     // Calcular string do mês: índice 1 = Janeiro = '01'
     const monthStr = isAllMonths ? '01' : String(monthIndex).padStart(2, '0');
     const startDate = `${year}-${monthStr}-01`;
-    const endDate = `${year}-${monthStr}-31`;
+    const lastDay = isAllMonths ? 31 : new Date(parseInt(year), monthIndex, 0).getDate();
+    const endDate = `${year}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
     
     // Filtro de datas
     const dateFilter = (dateStr: string) => {
